@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雲訂正V3.17</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        
+        :root {
+            --primary-color: #34C759;
+            --secondary-color: #007AFF;
+            --warning-color: #FFC700;
+            --card-bg: rgba(45, 45, 45, 0.4); 
+            --card-border: rgba(255, 255, 255, 0.15); 
+            --text-color-primary: rgba(255, 255, 255, 0.9); 
+            --text-color-secondary: rgba(255, 255, 255, 0.6); 
+            --input-bg: rgba(0, 0, 0, 0.2);
+            --shadow-color: rgba(0, 0, 0, 0.2);
+            --delete-color: #FF3B30;
+            --control-border-radius: 14px;
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; overflow: hidden; }
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            color: var(--text-color-primary);
+            -webkit-font-smoothing: antialiased;
+            background-image: url('https://class.kh.edu.tw/sites/26005/upload_file/5/backpic1.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        
+        .app-screen { display: none; padding: 20px; width: 100%; height: 100%; overflow-y: auto; padding-bottom: 80px;}
+        .app-screen.active { display: flex; flex-direction: column; animation: screenFadeIn 0.4s ease; }
+        @keyframes screenFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .container { max-width: 1200px; margin: 0 auto; width: 100%; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; gap: 20px; flex-wrap: wrap; }
+        .header-left { flex: 1; display: flex; justify-content: flex-start; min-width: 200px; }
+        .header-center { flex: 1.2; display: flex; justify-content: center; min-width: 280px; }
+        .header-right { flex: 1; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; min-width: 200px; }
+
+        h1 { font-weight: 700; font-size: 2.2em; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.35); margin: 0; }
+        h2 { font-weight: 600; color: var(--text-color-primary); margin: 0 0 25px; font-size: 1.5em;}
+        
+        .digital-clock { font-family: 'Orbitron', 'Courier New', Courier, monospace; font-size: 3.5em; font-weight: 700; color: #fff; letter-spacing: 0.05em; text-shadow: 0 0 8px rgba(0, 229, 255, 0.8), 0 0 16px rgba(0, 229, 255, 0.8), 0 0 24px rgba(0, 229, 255, 0.8); background: rgba(0,0,0,0.35); padding: 10px 25px; border-radius: 15px; border: 1px solid rgba(0, 229, 255, 0.6); min-width: 280px; text-align: center; }
+        
+        .card, .modal-card { background: var(--card-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-radius: 20px; border: 1px solid var(--card-border); box-shadow: 0 8px 32px 0 var(--shadow-color); }
+        
+        input, button { border-radius: var(--control-border-radius) !important; font-family: inherit; }
+        input { background-color: var(--input-bg); border: 1px solid rgba(255,255,255,0.1); box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); padding: 14px 18px; font-size: 1em; width: 100%; color: var(--text-color-primary); }
+        input:focus { outline: none; border-color: var(--secondary-color); box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3); }
+        button { padding: 14px 22px; border: none; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+        button:disabled { cursor: not-allowed; filter: grayscale(50%); opacity: 0.6; }
+        .btn-primary { background: var(--secondary-color); color: white; }
+        .btn-warning { background-color: var(--warning-color); color: #1d1d1f; }
+        .btn-secondary { background: rgba(255, 255, 255, 0.15); color: white; }
+        .btn-danger { background-color: var(--delete-color); color: white; }
+        .btn-success { background-color: var(--primary-color); color: white; }
+
+        .homework-card, .correction-homework-card { padding: 25px; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+
+        #dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 25px; }
+        .homework-card { cursor: pointer; display: flex; flex-direction: column; }
+        .homework-card:hover { transform: translateY(-5px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2); }
+        .homework-card-title { font-size: 1.5em; font-weight: 700; margin-bottom: 15px; color: var(--text-color-primary); }
+        .homework-card-footer { display: flex; justify-content: space-between; align-items: center; color: var(--text-color-secondary); font-size: 0.9em; margin-top: auto; padding-top: 15px;}
+        .status-badge { background-color: var(--warning-color); color: #1d1d1f; padding: 4px 10px; border-radius: 50px; font-weight: 600; }
+        .status-badge.all-done { background-color: var(--primary-color); color: white; }
+
+        .number-ball-container { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; flex-grow: 1; align-content: flex-start; }
+        .number-ball { width: 40px; height: 40px; background-color: var(--warning-color); color: #1d1d1f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; box-shadow: 0 4px 10px rgba(0,0,0,0.2); animation: float 3s ease-in-out infinite; }
+        .number-ball.red { background-color: var(--delete-color); color: white; box-shadow: 0 0 15px 5px rgba(255, 59, 48, 0.5); }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-8px); } 100% { transform: translateY(0px); } }
+        .number-ball:nth-child(2) { animation-delay: -0.5s; }
+        .number-ball:nth-child(3) { animation-delay: -1s; }
+        .number-ball:nth-child(4) { animation-delay: -1.5s; }
+        .number-ball:nth-child(5) { animation-delay: -2s; }
+
+        #tracking-title-card { padding: 15px 25px; margin-bottom: 20px; display: inline-block; }
+        #tracking-title { margin: 0; }
+
+        #student-checklist-card { padding: 30px; }
+        #student-checklist { display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 15px; }
+        .student-item { display: flex; align-items: center; justify-content: center; padding: 15px 10px; border: 2px solid var(--warning-color); border-radius: var(--control-border-radius); font-size: 1.2em; font-weight: 600; cursor: pointer; transition: all 0.2s ease-in-out; position: relative; color: var(--warning-color); }
+        .student-item.completed { background-color: var(--primary-color); border-color: var(--primary-color); color: #fff; text-decoration: none; opacity: 0.8; }
+        .student-item.completed::after { content: '✔'; position: absolute; top: 5px; right: 8px; font-size: 0.8em; font-weight: bold; }
+        
+        #consolidated-list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 25px; }
+        .correction-homework-card { padding: 25px; }
+        .correction-homework-title { font-size: 1.5em; font-weight: 700; margin-bottom: 20px; color: var(--text-color-primary); cursor: pointer; transition: color 0.3s ease; }
+        .correction-homework-title:hover { color: var(--secondary-color); }
+        .student-tags-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 15px; }
+        .correction-tag { background-color: var(--warning-color); color: #1d1d1f; padding: 12px 10px; border: none; border-radius: var(--control-border-radius); font-size: 1.5em; font-weight: 700; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.2s ease; text-align: center; }
+        .correction-tag:hover { transform: scale(1.05); filter: brightness(1.1); }
+        
+        .footer-actions { margin-top: 30px; display: flex; gap: 15px; justify-content: flex-end; align-items: center; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); background: rgba(0,0,0,0.3); align-items: center; justify-content: center; z-index: 10; opacity: 0; transition: opacity 0.3s ease; }
+        .modal.visible { display: flex; opacity: 1; }
+        .modal-card { padding: 30px; max-width: 500px; width: 90%; transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); }
+        .modal.visible .modal-card { transform: scale(1); }
+        .control-group label { display: block; color: var(--text-color-secondary); font-weight: 500; font-size: 0.9em; margin-bottom: 8px; }
+        .modal-actions { display: flex; gap: 15px; margin-top: 30px; }
+        .modal-actions.flex-end { justify-content: flex-end; }
+        .modal-actions.flex-center { justify-content: center; }
+        
+        #photo-settings-modal-card { max-width: 1400px; width: 95%; }
+        #settings-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px; }
+        .settings-column { display: flex; flex-direction: column; }
+        .settings-column h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 15px 0; font-size: 1.1em; font-weight: 600; color: var(--text-color-primary); border-bottom: 1px solid var(--card-border); padding-bottom: 10px; }
+        .settings-column h3 label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal; font-size: 0.9em; color: var(--text-color-secondary); }
+        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .input-group input { flex-grow: 1; }
+        .input-group button { flex-shrink: 0; padding: 14px; }
+        .settings-list { flex-grow: 1; max-height: 350px; overflow-y: auto; background: var(--input-bg); border-radius: var(--control-border-radius); padding: 10px; }
+        .settings-list-item { display: flex; align-items: center; justify-content: space-between; padding: 8px; border-radius: 8px; margin-bottom: 5px; background: rgba(255,255,255,0.05); }
+        .settings-list-item .content { display: flex; align-items: center; gap: 10px; word-break: break-all; flex-grow: 1; min-width: 0; }
+        .settings-list-item .content span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .settings-list-item input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--primary-color); cursor: pointer; }
+        .settings-list-item .delete-btn { padding: 5px 10px; font-size: 0.8em; }
+        #preview-container { flex-grow: 1; border: 2px dashed var(--card-border); border-radius: var(--control-border-radius); display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--text-color-secondary); position: relative; overflow: hidden; background: rgba(0,0,0,0.2); min-height: 200px; }
+        #preview-celebration-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .checkbox-container { display: flex; align-items: center; margin-top: 15px; font-size: 1em; color: var(--text-color-primary); }
+        .checkbox-container input { width: auto; margin-right: 10px; accent-color: var(--primary-color); }
+
+        #celebration-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; overflow: hidden; }
+        .confetti { position: absolute; width: 15px; height: 30px; top: -50px; opacity: 0; animation: exaggerated-fall 6s linear infinite; }
+        @keyframes exaggerated-fall { 0% { transform: translateY(0vh) rotateZ(0deg) translateX(0); opacity: 1; } 50% { transform: translateX(80px); } 100% { transform: translateY(110vh) rotateZ(1440deg) translateX(-80px); opacity: 0; } }
+        .firework { position: absolute; width: 5px; height: 5px; border-radius: 50%; opacity: 1; animation: explode 1.2s forwards cubic-bezier(0.1, 0.8, 0.7, 1); }
+        @keyframes explode { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(5); opacity: 0; } }
+        .balloon { position: absolute; width: 80px; height: 100px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; bottom: -150px; opacity: 0.9; animation: rise-and-wobble 8s ease-in-out forwards; }
+        @keyframes rise-and-wobble { 0% { transform: translateY(0) translateX(0); } 25% { transform: translateY(-30vh) translateX(30px) rotate(5deg); } 50% { transform: translateY(-60vh) translateX(-30px) rotate(-5deg); } 75% { transform: translateY(-90vh) translateX(30px) rotate(5deg); } 100% { transform: translateY(-130vh) translateX(0); } }
+        .star { position: absolute; font-size: 2.5em; top: 50%; left: 50%; animation: shoot-star 2s ease-out forwards; }
+        @keyframes shoot-star { 0% { transform: translate(0, 0) scale(0); opacity: 1; } 100% { transform: translate(var(--x), var(--y)) scale(1.5); opacity: 0; } }
+        .popup-message { position: absolute; top: 50%; left: 50%; font-size: 8em; font-weight: 900; color: white; text-shadow: 0 0 30px var(--primary-color), 0 0 50px var(--secondary-color); animation: popup-bounce 3s ease-in-out forwards; }
+        @keyframes popup-bounce { 0%, 100% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 10% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } 20% { transform: translate(-50%, -50%) scale(1); } 80% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+        .bouncing-emoji { position: absolute; font-size: 4em; bottom: -100px; animation: bounce-up-spin 4s ease-out forwards; }
+        @keyframes bounce-up-spin { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 50% { transform: translateY(-80vh) rotate(360deg); } 100% { transform: translateY(-130vh) rotate(720deg); opacity: 0; } }
+
+        .celebration-photo { position: absolute; max-width: 250px; max-height: 250px; width: auto; height: auto; border-radius: 15px; border: 5px solid white; box-shadow: 0 10px 40px rgba(0,0,0,0.5); object-fit: cover; pointer-events: none; }
+        .celebration-message { position: absolute; font-size: 2.5em; font-weight: 700; color: white; text-shadow: 0 0 10px rgba(0,0,0,0.5); white-space: nowrap; animation: fade-out 4s ease-in-out forwards; }
+        @keyframes fade-out { 0%, 100% { opacity: 0; } 20%, 80% { opacity: 1; } }
+        .celebration-photo.spin-show { top: 50%; left: 50%; animation: photo-spin-show 4s ease-in-out forwards; }
+        @keyframes photo-spin-show { 0% { transform: translate(-50%, -50%) scale(0.5) rotateY(-270deg); opacity: 0; } 40% { transform: translate(-50%, -50%) scale(1.1) rotateY(0deg); opacity: 1; } 60% { transform: translate(-50%, -50%) scale(1) rotateY(0deg); } 85% { transform: translate(-50%, -50%) scale(1) rotateY(0deg); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1) rotateY(0deg); opacity: 0; } }
+        .celebration-photo.spin-flash { top: 50%; left: 50%; animation: photo-spin-flash 3.5s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards; }
+        @keyframes photo-spin-flash { 0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; } 40% { transform: translate(-50%, -50%) scale(1.2) rotate(720deg); opacity: 1; } 60% { transform: translate(-50%, -50%) scale(1) rotate(710deg); } 100% { transform: translate(-50%, -50%) scale(1.5) rotate(720deg); opacity: 0; } }
+        .celebration-photo.drop-jiggle-exit { top: 0; left: 50%; animation: photo-drop-jiggle-exit 5s ease-out forwards; }
+        @keyframes photo-drop-jiggle-exit { 0% { transform: translate(-50%, -100vh); } 20% { transform: translate(-50%, calc(50vh - 50%)); animation-timing-function: cubic-bezier(0.76, 0.05, 0.86, 0.06); } 24% { transform: translate(-50%, calc(50vh - 50% - 30px)); animation-timing-function: ease-out; } 28% { transform: translate(-50%, calc(50vh - 50%)); } 30% { transform: translate(-50%, calc(50vh - 50% - 10px)); } 32%, 72% { transform: translate(-50%, calc(50vh - 50%)); opacity: 1; } 100% { transform: translate(-50%, 120vh); opacity: 1; } }
+        .celebration-photo.zoom-in-out { top: 50%; left: 50%; animation: photo-zoom-in-out 4s ease-in-out forwards; }
+        @keyframes photo-zoom-in-out { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 25%, 75% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(0); opacity: 0; } }
+        .celebration-photo.slide-left-jiggle { top: 50%; left: 0; animation: photo-slide-left-jiggle 5s ease-out forwards; }
+        @keyframes photo-slide-left-jiggle { 0% { transform: translate(-100vw, -50%); opacity: 1; } 30% { transform: translate(calc(50vw - 50%), -50%); } 33% { transform: translate(calc(50vw - 50%), -50%) rotate(-4deg); } 36% { transform: translate(calc(50vw - 50%), -50%) rotate(4deg); } 39%, 80% { transform: translate(calc(50vw - 50%), -50%) rotate(0deg); opacity: 1; } 100% { transform: translate(calc(50vw - 50%), -50%) scale(1.1); opacity: 0; } }
+        .celebration-photo.slide-right-jiggle { top: 50%; right: 0; animation: photo-slide-right-jiggle 5s ease-out forwards; }
+        @keyframes photo-slide-right-jiggle { 0% { transform: translate(100vw, -50%); opacity: 1; } 30% { transform: translate(calc(-50vw + 50%), -50%); } 33% { transform: translate(calc(-50vw + 50%), -50%) rotate(4deg); } 36% { transform: translate(calc(-50vw + 50%), -50%) rotate(-4deg); } 39%, 80% { transform: translate(calc(-50vw + 50%), -50%) rotate(0deg); opacity: 1; } 100% { transform: translate(calc(-50vw + 50%), -50%) scale(1.1); opacity: 0; } }
+        
+        #preview-celebration-layer .celebration-photo { max-width: 120px; max-height: 120px; }
+        #preview-celebration-layer .celebration-message { font-size: 1.5em; }
+        
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 25px;
+            border-radius: var(--control-border-radius);
+            color: white;
+            font-size: 1.1em;
+            font-weight: 600;
+            z-index: 10000;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.4s ease, top 0.4s ease;
+        }
+        .toast-notification.show { top: 40px; opacity: 1; }
+        .toast-notification.success { background-color: var(--primary-color); }
+        .toast-notification.error { background-color: var(--delete-color); }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+    
+    <div id="celebration-container"></div>
+    <input type="file" id="import-file-input" accept=".json" style="display: none;">
+
+    <div id="dashboard-screen" class="app-screen">
+        <div class="container">
+            <div class="header">
+                <div class="header-left"><h1>作業總覽</h1></div>
+                <div class="header-center"><div class="digital-clock"></div></div>
+                <div class="header-right">
+                    <button id="photo-settings-btn" class="btn-secondary" disabled>👍 慶祝設定</button>
+                    <button id="cloud-sync-btn" class="btn-secondary">☁️ 雲端服務與備份</button>
+                    <button id="show-consolidated-btn" class="btn-warning" disabled>查看總訂正名單</button>
+                    <button id="show-add-modal-btn" class="btn-primary" disabled>新增作業</button>
+                </div>
+            </div>
+            <div id="dashboard-grid"></div>
+        </div>
+    </div>
+    <div id="tracking-screen" class="app-screen">
+        <div class="container">
+            <div class="header">
+                <div class="header-left"><div id="tracking-title-card" class="card"><h1 id="tracking-title"></h1></div></div>
+                <div class="header-center"></div>
+                <div class="header-right">
+                    <button id="edit-title-btn" class="btn-secondary">編輯名稱</button> <button id="back-to-dashboard-btn" class="btn-secondary">返回總覽</button>
+                </div>
+            </div>
+            <div id="student-checklist-card" class="card"><div id="student-checklist"></div></div>
+            <div class="footer-actions">
+                <button id="select-all-btn" class="btn-secondary">全選</button>
+                <button id="done-tracking-btn" class="btn-success">完成</button> <button id="delete-homework-btn" class="btn-danger">刪除此作業</button>
+            </div>
+        </div>
+    </div>
+    <div id="consolidated-screen" class="app-screen">
+         <div class="container">
+            <div class="header">
+                <div class="header-left"><h1>總訂正名單</h1></div>
+                <div class="header-center"><div class="digital-clock"></div></div>
+                <div class="header-right"><button id="back-to-dashboard-from-consolidated-btn" class="btn-secondary">返回總覽</button></div>
+            </div>
+            <div id="consolidated-list-container"></div>
+        </div>
+    </div>
+    <div id="add-homework-modal" class="modal">
+        <div class="modal-card">
+            <h2>新增作業</h2>
+            <div class="control-group" style="margin-bottom: 20px;"><label for="homework-title-input">作業名稱</label><input type="text" id="homework-title-input" placeholder="例如：數學習作 P.30-32"></div>
+            <div class="control-group"><label for="class-size-input">班級人數</label><input type="number" id="class-size-input" value="24" min="1"></div>
+            <div class="modal-actions"><button id="cancel-add-btn" class="btn-secondary" style="flex: 1;">取消</button><button id="confirm-add-btn" class="btn-primary" style="flex: 1;">確認新增</button></div>
+        </div>
+    </div>
+
+    <div id="photo-settings-modal" class="modal">
+        <div class="modal-card" id="photo-settings-modal-card">
+            <h2>設定慶祝照片與效果</h2>
+            <div class="checkbox-container" style="justify-content: center; margin-bottom: 20px; margin-top: -10px;">
+                <input type="checkbox" id="fixed-photo-celebration-toggle">
+                <label for="fixed-photo-celebration-toggle">固定採用照片慶祝模式</label>
+            </div>
+    
+            <div id="settings-grid">
+                <div class="settings-column">
+                    <h3>
+                        <label><input type="checkbox" class="select-all-checkbox" data-type="url"></label>新增照片網址
+                    </h3>
+                    <div class="input-group">
+                        <input type="url" id="photo-url-input" placeholder="貼上圖片網址...">
+                        <button id="add-photo-url-btn" class="btn-primary">新增</button>
+                    </div>
+                    <div id="photo-url-list" class="settings-list"></div>
+                </div>
+    
+                <div class="settings-column">
+                    <h3>
+                        <label><input type="checkbox" class="select-all-checkbox" data-type="message"></label>新增慶祝文字
+                    </h3>
+                    <div class="input-group">
+                        <input type="text" id="message-text-input" placeholder="例如：你真棒！">
+                        <button id="add-message-text-btn" class="btn-primary">新增</button>
+                    </div>
+                    <div id="message-text-list" class="settings-list"></div>
+                </div>
+    
+                <div class="settings-column">
+                    <h3>
+                        <label><input type="checkbox" class="select-all-checkbox" data-type="animation"></label>進入模式
+                    </h3>
+                    <div id="animation-style-list" class="settings-list"></div>
+                </div>
+    
+                <div class="settings-column">
+                    <h3>預覽畫面</h3>
+                    <div id="preview-container">
+                        <div id="preview-celebration-layer"></div>
+                        <p>點擊下方按鈕預覽啟用項目的隨機組合效果。</p>
+                    </div>
+                    <button id="preview-btn" class="btn-secondary" style="width: 100%; margin-top: 10px;">預覽效果</button>
+                </div>
+            </div>
+    
+            <div class="modal-actions flex-center" style="margin-top: 20px;">
+                <button id="close-photo-modal-btn" class="btn-secondary" style="flex: 1; max-width: 300px;">儲存並關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cloud-sync-modal" class="modal">
+        <div class="modal-card">
+            <h2>☁️ 雲端服務與備份</h2>
+            
+            <div id="google-user-info" style="text-align: center; margin-bottom: 15px; color: var(--text-color-primary);">
+                狀態：尚未登入
+            </div>
+            <div id="firebase-status" style="text-align: center; margin-bottom: 25px; color: var(--text-color-secondary); font-size: 0.9em;">
+                即時同步：未連線
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                <button id="google-login-btn" class="btn-primary">🔑 使用 Google 登入</button>
+                <button id="google-logout-btn" class="btn-secondary" style="display: none;">👋 登出</button>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid var(--card-border); margin: 25px 0;">
+
+            <h3 style="text-align: center; font-weight: 500; color: var(--text-color-secondary); margin-bottom: 20px;">手動備份 (Google Drive)</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                <button id="gdrive-backup-btn" class="btn-primary" disabled>📤 備份至雲端硬碟</button>
+                <button id="gdrive-restore-btn" class="btn-success" disabled>📥 從雲端硬碟還原</button>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--card-border); margin: 25px 0;">
+
+            <h3 style="text-align: center; font-weight: 500; color: var(--text-color-secondary); margin-bottom: 20px;">本機檔案 (跨帳號轉移)</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                <button id="local-export-btn" class="btn-secondary">📤 匯出設定檔</button>
+                <button id="local-import-btn" class="btn-secondary">📥 匯入設定檔</button>
+            </div>
+
+            <div class="modal-actions flex-center" style="margin-top: 30px;">
+                <button id="close-cloud-modal-btn" class="btn-secondary" style="flex-grow: 1; max-width: 300px;">關閉</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
+    
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    
+    <script>
+        // ================================================================
+        // V3.18 CONFIGURATION
+        // ================================================================
+
+        // [Firebase]
+        const firebaseConfig = {
+          apiKey: "AIzaSyAsBwcr_pL_Wk2SY7IOV7px0TQkMlUjVHo",
+          authDomain: "homework-correction-system.firebaseapp.com",
+          projectId: "homework-correction-system",
+          storageBucket: "homework-correction-system.firebasestorage.app",
+          messagingSenderId: "654185613923",
+          appId: "1:654185613923:web:777c1817e80d8721c5c656"
+        };
+        
+        // [Google Drive & Auth]
+        const GAPI_CLIENT_ID = '139292684141-fmmb7dkb5l1kbpunfuub22er1q43o2ko.apps.googleusercontent.com'; 
+        const GAPI_API_KEY = ''; 
+        const GAPI_DISCOVERY_DOCS = ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
+        const GAPI_SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const GDRIVE_BACKUP_FILE_NAME = 'homework_correction_backup.json'; // *** 已修正：新增此行 ***
+
+        // ================================================================
+        // INITIALIZE SERVICES (GLOBAL FLAGS)
+        // ================================================================
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        let gapiInited = false;
+        
+        // [修正] 大幅簡化初始化流程
+        window.gapiLoaded = () => {
+            gapi.load('client', () => { 
+                console.log("GAPI client loaded.");
+                gapiInited = true; 
+            });
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Element Selectors ---
+            const screens = { dashboard: document.getElementById('dashboard-screen'), tracking: document.getElementById('tracking-screen'), consolidated: document.getElementById('consolidated-screen') };
+            const dashboardGrid = document.getElementById('dashboard-grid');
+            const showAddModalBtn = document.getElementById('show-add-modal-btn');
+            const showConsolidatedBtn = document.getElementById('show-consolidated-btn');
+            const photoSettingsBtn = document.getElementById('photo-settings-btn');
+            const trackingTitle = document.getElementById('tracking-title');
+            const studentChecklist = document.getElementById('student-checklist');
+            const deleteHomeworkBtn = document.getElementById('delete-homework-btn');
+            const selectAllBtn = document.getElementById('select-all-btn');
+            const backToDashboardBtn = document.getElementById('back-to-dashboard-btn');
+            const consolidatedListContainer = document.getElementById('consolidated-list-container');
+            const backToDashboardFromConsolidatedBtn = document.getElementById('back-to-dashboard-from-consolidated-btn');
+            const addModal = document.getElementById('add-homework-modal');
+            const homeworkTitleInput = document.getElementById('homework-title-input');
+            const classSizeInput = document.getElementById('class-size-input');
+            const cancelAddBtn = document.getElementById('cancel-add-btn');
+            const confirmAddBtn = document.getElementById('confirm-add-btn');
+            const clockElements = document.querySelectorAll('.digital-clock');
+            const editTitleBtn = document.getElementById('edit-title-btn');
+            const doneTrackingBtn = document.getElementById('done-tracking-btn');
+            const importFileInput = document.getElementById('import-file-input');
+            const celebrationContainer = document.getElementById('celebration-container');
+            const photoSettingsModal = document.getElementById('photo-settings-modal');
+            const fixedPhotoCelebrationToggle = document.getElementById('fixed-photo-celebration-toggle');
+            const photoUrlInput = document.getElementById('photo-url-input');
+            const addPhotoUrlBtn = document.getElementById('add-photo-url-btn');
+            const photoUrlList = document.getElementById('photo-url-list');
+            const messageTextInput = document.getElementById('message-text-input');
+            const addMessageTextBtn = document.getElementById('add-message-text-btn');
+            const messageTextList = document.getElementById('message-text-list');
+            const animationStyleList = document.getElementById('animation-style-list');
+            const previewBtn = document.getElementById('preview-btn');
+            const previewCelebrationLayer = document.getElementById('preview-celebration-layer');
+            const closePhotoModalBtn = document.getElementById('close-photo-modal-btn');
+            const selectAllCheckboxes = document.querySelectorAll('.select-all-checkbox');
+            const cloudSyncBtn = document.getElementById('cloud-sync-btn');
+            const cloudSyncModal = document.getElementById('cloud-sync-modal');
+            const closeCloudModalBtn = document.getElementById('close-cloud-modal-btn');
+            const googleLoginBtn = document.getElementById('google-login-btn');
+            const googleLogoutBtn = document.getElementById('google-logout-btn');
+            const googleUserInfo = document.getElementById('google-user-info');
+            const firebaseStatus = document.getElementById('firebase-status');
+            const gdriveBackupBtn = document.getElementById('gdrive-backup-btn');
+            const gdriveRestoreBtn = document.getElementById('gdrive-restore-btn');
+            const localExportBtn = document.getElementById('local-export-btn');
+            const localImportBtn = document.getElementById('local-import-btn');
+
+            // --- Global State ---
+            const DEFAULT_PHOTO_URL = 'https://class.kh.edu.tw/sites/26005/album_file/1/hamclass.png';
+            const DEFAULT_MESSAGE = '你好棒';
+            const ANIMATION_PRESETS = [
+                { id: 'spin-show', name: '旋轉展示', enabled: true }, { id: 'spin-flash', name: '旋轉閃現', enabled: true },
+                { id: 'drop-jiggle-exit', name: '掉落彈跳', enabled: true }, { id: 'zoom-in-out', name: '縮放顯示', enabled: true },
+                { id: 'slide-left-jiggle', name: '由左滑入', enabled: true }, { id: 'slide-right-jiggle', name: '由右滑入', enabled: true },
+            ];
+
+            let allHomeworks = [];
+            let photoSettings = {};
+            let currentHomeworkId = null;
+            let currentUser = null; 
+            let firestoreUnsubscribe = null; 
+            
+            // ================================================================
+            // DATA & STATE MANAGEMENT
+            // ================================================================
+
+            const updateDataInFirestore = async () => {
+                if (!currentUser) return;
+                const dataToSave = { homeworks: allHomeworks, settings: photoSettings };
+                try {
+                    await db.collection('users').doc(currentUser.uid).set(dataToSave, { merge: true });
+                } catch (error) {
+                    console.error("Error saving data to Firestore: ", error);
+                    showToast('資料儲存至雲端失敗！', 'error');
+                }
+            };
+
+            const loadDefaultSettings = () => {
+                photoSettings = { urls: [], messages: [], animations: [], fixed: false };
+                if (!photoSettings.urls.some(p => p.url === DEFAULT_PHOTO_URL)) {
+                    photoSettings.urls.unshift({ url: DEFAULT_PHOTO_URL, enabled: true });
+                }
+                if (!photoSettings.messages.some(m => m.text === DEFAULT_MESSAGE)) {
+                    photoSettings.messages.unshift({ text: DEFAULT_MESSAGE, enabled: true });
+                }
+                if (!photoSettings.animations || photoSettings.animations.length !== ANIMATION_PRESETS.length) {
+                    photoSettings.animations = JSON.parse(JSON.stringify(ANIMATION_PRESETS));
+                }
+                fixedPhotoCelebrationToggle.checked = photoSettings.fixed;
+            };
+
+            const switchScreen = (screenName) => {
+                Object.values(screens).forEach(s => s.classList.remove('active'));
+                screens[screenName].classList.add('active');
+            };
+            
+            const updateClock = () => {
+                const timeString = new Date().toLocaleTimeString('en-GB');
+                clockElements.forEach(el => { el.textContent = timeString; });
+            };
+
+            // ================================================================
+            // RENDERING FUNCTIONS
+            // ================================================================
+            
+            const renderDashboard = () => {
+                if (!currentUser) {
+                    dashboardGrid.innerHTML = `<p style="color: var(--text-color-secondary); grid-column: 1 / -1; text-align: center; font-size: 1.2em;">請點擊右上角「☁️ 雲端服務與備份」登入以載入資料。</p>`;
+                    return;
+                }
+                dashboardGrid.innerHTML = '';
+                if (allHomeworks.length === 0) {
+                    dashboardGrid.innerHTML = `<p style="color: var(--text-color-secondary); grid-column: 1 / -1; text-align: center; font-size: 1.2em;">目前沒有作業，請點擊右上角新增。</p>`;
+                    return;
+                }
+                allHomeworks.forEach(hw => {
+                    const card = document.createElement('div');
+                    card.className = 'homework-card';
+                    card.dataset.id = hw.id;
+                    const studentsToCorrect = hw.students.filter(s => s.needsCorrection);
+                    const uncompletedCount = studentsToCorrect.length;
+                    
+                    if (uncompletedCount > 0 && uncompletedCount < 6) {
+                        const isRed = uncompletedCount < 4;
+                        const fontSize = 1.2 + (5 - uncompletedCount) * 0.2;
+                        card.innerHTML = `<div class="homework-card-title">${hw.title}</div><div class="number-ball-container">${studentsToCorrect.map(s => `<div class="number-ball ${isRed ? 'red' : ''}" style="font-size: ${fontSize.toFixed(1)}em;">${s.id}</div>`).join('')}</div><div class="homework-card-footer"><span>${hw.date}</span></div>`;
+                    } else {
+                        card.innerHTML = `<div class="homework-card-title">${hw.title}</div><div class="homework-card-footer"><span>${hw.date}</span><span class="status-badge ${uncompletedCount === 0 ? 'all-done' : ''}">${uncompletedCount === 0 ? '🎉 全班完成' : `${uncompletedCount} 人未訂正`}</span></div>`;
+                    }
+                    dashboardGrid.appendChild(card);
+                });
+            };
+            
+            const renderTrackingPage = () => {
+                const homework = allHomeworks.find(hw => hw.id === currentHomeworkId);
+                if (!homework) return;
+                trackingTitle.textContent = homework.title;
+                studentChecklist.innerHTML = '';
+                homework.students.forEach(student => {
+                    const item = document.createElement('div');
+                    item.className = 'student-item';
+                    item.textContent = `${student.id}號`;
+                    item.dataset.id = student.id;
+                    if (!student.needsCorrection) item.classList.add('completed');
+                    studentChecklist.appendChild(item);
+                });
+                const allAreComplete = homework.students.every(s => !s.needsCorrection);
+                selectAllBtn.textContent = allAreComplete ? '取消全選' : '全選';
+            };
+
+            const renderConsolidatedPage = () => {
+                consolidatedListContainer.innerHTML = '';
+                const homeworksToCorrect = allHomeworks.filter(hw => hw.students.some(s => s.needsCorrection));
+                if (homeworksToCorrect.length === 0) {
+                    consolidatedListContainer.innerHTML = `<div class="card" style="text-align: center; font-size: 1.5em; color: var(--text-color-primary); grid-column: 1 / -1;">🎉 太棒了！目前所有作業都已完成訂正！</div>`;
+                } else {
+                    homeworksToCorrect.forEach(hw => {
+                        const card = document.createElement('div');
+                        card.className = 'correction-homework-card';
+                        const title = document.createElement('h3');
+                        title.className = 'correction-homework-title';
+                        title.textContent = hw.title;
+                        title.dataset.homeworkId = hw.id;
+                        card.appendChild(title);
+
+                        const tagsGrid = document.createElement('div');
+                        tagsGrid.className = 'student-tags-grid';
+                        hw.students.filter(s => s.needsCorrection).forEach(student => {
+                            const tag = document.createElement('button');
+                            tag.className = 'correction-tag';
+                            tag.textContent = student.id;
+                            tag.dataset.studentId = student.id;
+                            tag.dataset.homeworkId = hw.id;
+                            tagsGrid.appendChild(tag);
+                        });
+                        card.appendChild(tagsGrid);
+                        consolidatedListContainer.appendChild(card);
+                    });
+                }
+                switchScreen('consolidated');
+            };
+            
+            // --- CORE LOGIC ---
+            const checkForCompletion = (homework) => homework.students.every(s => !s.needsCorrection);
+            
+            const toggleStudentStatus = (e) => {
+                if (!e.target.classList.contains('student-item')) return;
+                const studentId = parseInt(e.target.dataset.id, 10);
+                const homework = allHomeworks.find(hw => hw.id === currentHomeworkId);
+                const wasInProgress = homework.students.some(s => s.needsCorrection);
+                const student = homework.students.find(s => s.id === studentId);
+                if (student) {
+                    student.needsCorrection = !student.needsCorrection;
+                    if (wasInProgress && checkForCompletion(homework)) triggerRandomCelebration();
+                    updateDataInFirestore();
+                    renderTrackingPage();
+                }
+            };
+
+            const toggleSelectAll = () => {
+                const homework = allHomeworks.find(hw => hw.id === currentHomeworkId);
+                if (!homework) return;
+                const wasInProgress = homework.students.some(s => s.needsCorrection);
+                const allAreComplete = homework.students.every(s => !s.needsCorrection);
+                homework.students.forEach(student => { student.needsCorrection = allAreComplete; });
+                if (wasInProgress && checkForCompletion(homework)) triggerRandomCelebration();
+                updateDataInFirestore();
+                renderTrackingPage(); 
+            };
+            
+            const addHomework = () => {
+                const title = homeworkTitleInput.value.trim();
+                const classSize = parseInt(classSizeInput.value, 10);
+                if (!title || isNaN(classSize) || classSize < 1) { showToast('請輸入有效的作業名稱和班級人數！', 'error'); return; }
+                const newHomework = { id: Date.now(), title, date: new Date().toLocaleDateString('zh-TW'), students: Array.from({ length: classSize }, (_, i) => ({ id: i + 1, needsCorrection: true })) };
+                allHomeworks.push(newHomework);
+                updateDataInFirestore();
+                closeModal(addModal);
+            };
+            
+            const deleteHomework = () => {
+                 if (confirm('確定要永久刪除此項作業嗎？此操作無法復原。')) {
+                    allHomeworks = allHomeworks.filter(hw => hw.id !== currentHomeworkId);
+                    updateDataInFirestore();
+                    switchScreen('dashboard');
+                }
+            };
+
+            const openModal = (modal) => modal.classList.add('visible');
+            const closeModal = (modal) => {
+                modal.classList.remove('visible');
+                if (modal === addModal) setTimeout(() => { homeworkTitleInput.value = ''; }, 300);
+            };
+
+            function showToast(message, type = 'success') {
+                const toast = document.createElement('div');
+                toast.className = `toast-notification ${type}`; toast.textContent = message; document.body.appendChild(toast);
+                setTimeout(() => { toast.classList.add('show'); }, 100);
+                setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { document.body.removeChild(toast); }, 500); }, 3000);
+            }
+            
+            // --- SETTINGS RENDERER FUNCTIONS ---
+            const updateSelectAllState = (type) => {
+                const checkbox = document.querySelector(`.select-all-checkbox[data-type="${type}"]`);
+                if (!checkbox) return;
+                let list;
+                if (type === 'url') list = photoSettings.urls;
+                else if (type === 'message') list = photoSettings.messages;
+                else if (type === 'animation') list = photoSettings.animations;
+                else return;
+
+                if (list && list.length > 0 && list.every(item => item.enabled)) {
+                    checkbox.checked = true;
+                    checkbox.indeterminate = false;
+                } else if (list && list.some(item => item.enabled)) {
+                    checkbox.checked = false;
+                    checkbox.indeterminate = true;
+                } else {
+                    checkbox.checked = false;
+                    checkbox.indeterminate = false;
+                }
+            };
+
+            const renderSettingsList = (container, items, type) => {
+                container.innerHTML = '';
+                if (!items || items.length === 0) { container.innerHTML = `<p style="text-align: center; color: var(--text-color-secondary);">尚未新增任何項目。</p>`; return; }
+                items.forEach((item, index) => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'settings-list-item';
+                    const text = type === 'url' ? item.url : (type === 'message' ? item.text : item.name);
+                    listItem.innerHTML = `<div class="content"><input type="checkbox" data-index="${index}" data-type="${type}" ${item.enabled ? 'checked' : ''}><span title="${text}">${text}</span></div>${type !== 'animation' ? `<button class="btn-danger delete-btn" data-index="${index}" data-type="${type}">刪除</button>` : ''}`;
+                    container.appendChild(listItem);
+                });
+            };
+
+            function handleSettingsListClick(e) {
+                const target = e.target; if (!target.dataset.type) return;
+                const type = target.dataset.type, index = parseInt(target.dataset.index, 10);
+                let list, container;
+                if (type === 'url') { list = photoSettings.urls; container = photoUrlList; } 
+                else if (type === 'message') { list = photoSettings.messages; container = messageTextList; }
+                else if (type === 'animation') { list = photoSettings.animations; container = animationStyleList; }
+                else return;
+
+                if (target.type === 'checkbox') {
+                    list[index].enabled = target.checked;
+                } else if (target.classList.contains('delete-btn')) {
+                    list.splice(index, 1);
+                    renderSettingsList(container, list, type);
+                }
+                updateDataInFirestore();
+                updateSelectAllState(type);
+            }
+
+            const addPhotoUrl = () => {
+                const url = photoUrlInput.value.trim();
+                try {
+                    new URL(url); 
+                    if (url && !photoSettings.urls.some(p => p.url === url)) {
+                        photoSettings.urls.push({ url: url, enabled: true });
+                        updateDataInFirestore(); renderSettingsList(photoUrlList, photoSettings.urls, 'url');
+                        updateSelectAllState('url'); photoUrlInput.value = '';
+                    } else { showToast('請輸入有效的、不重複的網址!', 'error'); }
+                } catch (_) { showToast('請輸入有效的網址！', 'error'); }
+            };
+            const addMessageText = () => {
+                const text = messageTextInput.value.trim();
+                if (text && !photoSettings.messages.some(m => m.text === text)) {
+                    photoSettings.messages.push({ text: text, enabled: true });
+                    updateDataInFirestore(); renderSettingsList(messageTextList, photoSettings.messages, 'message');
+                    updateSelectAllState('message'); messageTextInput.value = '';
+                } else { showToast('請輸入有效的、不重複的文字!', 'error'); }
+            };
+            
+            // --- CELEBRATION EFFECT FUNCTIONS ---
+            const clearCelebration = (container = celebrationContainer) => container.innerHTML = '';
+            const createConfetti = () => { clearCelebration(); for (let i = 0; i < 150; i++) { const c = document.createElement('div'); c.className = 'confetti'; c.style.left = Math.random() * 100 + 'vw'; c.style.animationDelay = Math.random() * 6 + 's'; c.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`; c.style.height = Math.random() * 20 + 10 + 'px'; c.style.width = Math.random() * 10 + 5 + 'px'; celebrationContainer.appendChild(c); } setTimeout(clearCelebration, 6000); };
+            const createFireworks = () => { clearCelebration(); for (let i = 0; i < 8; i++) { setTimeout(() => { const x = Math.random() * 80 + 10; const y = Math.random() * 40 + 20; const color = `hsl(${Math.random() * 360}, 100%, 60%)`; for (let j = 0; j < 50; j++) { const p = document.createElement('div'); p.className = 'firework'; p.style.left = `${x}vw`; p.style.top = `${y}vh`; p.style.backgroundColor = color; const angle = Math.random() * 360; const distance = Math.random() * 80 + 20; p.style.transform = `rotate(${angle}deg) translateX(${distance}px)`; celebrationContainer.appendChild(p); } }, Math.random() * 1500); } setTimeout(clearCelebration, 3000); };
+            const createBalloons = () => { clearCelebration(); const colors = ['#ff4757', '#ffa502', '#2ed573', '#1e90ff', '#ff6b81', '#f8c291', '#82ccdd']; for (let i = 0; i < 20; i++) { const b = document.createElement('div'); b.className = 'balloon'; b.style.left = Math.random() * 90 + 'vw'; b.style.animationDelay = Math.random() * 3 + 's'; b.style.backgroundColor = colors[i % colors.length]; celebrationContainer.appendChild(b); } setTimeout(clearCelebration, 8000); };
+            const createStarShower = () => { clearCelebration(); for (let i = 0; i < 60; i++) { const s = document.createElement('div'); s.className = 'star'; s.textContent = ['✨', '🌟', '💫'][Math.floor(Math.random() * 3)]; s.style.setProperty('--x', (Math.random() - 0.5) * 1500 + 'px'); s.style.setProperty('--y', (Math.random() - 0.5) * 1500 + 'px'); s.style.animationDelay = Math.random() * 2 + 's'; celebrationContainer.appendChild(s); } setTimeout(clearCelebration, 3000); };
+            const createPopupMessage = () => { clearCelebration(); const messages = ['太棒了!', '完美!', 'GOOD JOB!', 'ALL PASS!']; const m = document.createElement('div'); m.className = 'popup-message'; m.textContent = messages[Math.floor(Math.random() * messages.length)]; celebrationContainer.appendChild(m); setTimeout(clearCelebration, 3000); };
+            const createBouncingEmojis = () => { clearCelebration(); const emojis = ['🎉', '💯', '👍', '✨', '🎈', '🏆', '🥳', '🚀', '🤩']; for (let i = 0; i < 30; i++) { const e = document.createElement('div'); e.className = 'bouncing-emoji'; e.textContent = emojis[Math.floor(Math.random() * emojis.length)]; e.style.left = Math.random() * 95 + 'vw'; e.style.animationDelay = Math.random() * 2.5 + 's'; celebrationContainer.appendChild(e); } setTimeout(clearCelebration, 5000); };
+            
+            const createPhotoCelebration = (container = celebrationContainer) => {
+                if (!photoSettings || !photoSettings.urls) return;
+                const enabledPhotos = photoSettings.urls.filter(p => p.enabled);
+                const enabledMessages = photoSettings.messages.filter(m => m.enabled);
+                const enabledAnims = photoSettings.animations.filter(a => a.enabled);
+                if(enabledPhotos.length === 0) { createBalloons(); return; } 
+                clearCelebration(container);
+                const photoData = enabledPhotos[Math.floor(Math.random() * enabledPhotos.length)];
+                const messageData = enabledMessages.length > 0 ? enabledMessages[Math.floor(Math.random() * enabledMessages.length)] : { text: DEFAULT_MESSAGE };
+                const animData = enabledAnims.length > 0 ? enabledAnims[Math.floor(Math.random() * enabledAnims.length)] : { id: 'spin-flash' };
+                const photo = document.createElement('img');
+                photo.className = 'celebration-photo'; photo.src = photoData.url; photo.classList.add(animData.id);
+                const message = document.createElement('div');
+                message.className = 'celebration-message'; message.textContent = messageData.text;
+                message.style.top = `calc(50% + ${container === previewCelebrationLayer ? 70 : 140}px)`; 
+                message.style.left = '50%'; message.style.transform = 'translate(-50%, -50%)';
+                container.appendChild(photo); container.appendChild(message);
+                setTimeout(() => clearCelebration(container), 8000);
+            };
+            const triggerRandomCelebration = () => {
+                const effects = [ createConfetti, createFireworks, createBalloons, createStarShower, createPopupMessage, createBouncingEmojis, createPhotoCelebration ];
+                if (photoSettings.fixed) { createPhotoCelebration(); } 
+                else { effects[Math.floor(Math.random() * effects.length)](); }
+            };
+
+            // =================================================================
+            // AUTH & CLOUD SYNC FUNCTIONS (UNIFIED FLOW)
+            // =================================================================
+
+            function handleGoogleLogin() {
+                if (!gapiInited) {
+                    showToast("Google API 尚未初始化，請稍後再試。", "error");
+                    return;
+                }
+                const provider = new firebase.auth.GoogleAuthProvider();
+                // [修正] 在登入請求中直接加入 Google Drive 的權限範圍 (Scope)
+                provider.addScope(GAPI_SCOPES);
+
+                auth.signInWithPopup(provider)
+                    .then(async (result) => {
+                        // 從登入成功的結果中取得最重要的 credential
+                        const credential = result.credential;
+                        if (!credential) {
+                           throw new Error("無法從 Firebase 取得憑證。");
+                        }
+                        // 從 credential 中取得可用於 GAPI 的 access token
+                        const accessToken = credential.accessToken;
+                        
+                        // 將此 token 設定給 GAPI client
+                        gapi.client.setToken({ access_token: accessToken });
+
+                        // 初始化 Google Drive API (V3)
+                        await gapi.client.init({
+                            apiKey: GAPI_API_KEY,
+                            discoveryDocs: GAPI_DISCOVERY_DOCS,
+                        });
+                        
+                        showToast("Google 登入及雲端硬碟授權成功！");
+                        console.log("Firebase & GAPI unified sign-in successful.");
+
+                        // 啟用相關按鈕
+                        gdriveBackupBtn.disabled = false;
+                        gdriveRestoreBtn.disabled = false;
+                    })
+                    .catch((error) => {
+                        console.error("統一登入流程失敗:", error);
+                        if (error.code !== 'auth/popup-closed-by-user') {
+                            showToast(`登入失敗: ${error.message}`, 'error');
+                        }
+                    });
+            }
+
+            function handleLogout() {
+                // 登出時，同時清除 GAPI 的 token 並從 Firebase 登出
+                gapi.client.setToken('');
+                auth.signOut();
+                showToast("已成功登出");
+            }
+
+            function updateUIForLogin(user) {
+                currentUser = user;
+                googleLoginBtn.style.display = 'none';
+                googleLogoutBtn.style.display = 'block';
+                googleUserInfo.textContent = `已登入為：${user.displayName || user.email}`;
+                firebaseStatus.textContent = '即時同步：連線中...';
+                
+                photoSettingsBtn.disabled = false;
+                showConsolidatedBtn.disabled = false;
+                showAddModalBtn.disabled = false;
+
+                // ==============================[BUG FIX START]==============================
+                // [修正] 當使用者登入時，無論如何都應該啟用Google Drive按鈕。
+                // 按鈕本身的功能已包含權杖過期時的重新授權檢查，因此在此處禁用會導致不良的使用者體驗。
+                // 舊的程式碼會將按鈕禁用，造成使用者重新整理頁面後，即使是登入狀態，按鈕也無法點擊。
+                gdriveBackupBtn.disabled = false;
+                gdriveRestoreBtn.disabled = false;
+                // ===============================[BUG FIX END]===============================
+
+                listenToDataChanges();
+            }
+
+            function updateUIForLogout() {
+                currentUser = null;
+                googleLoginBtn.style.display = 'block';
+                googleLogoutBtn.style.display = 'none';
+                googleUserInfo.textContent = '狀態：尚未登入';
+                firebaseStatus.textContent = '即時同步：未連線';
+                
+                photoSettingsBtn.disabled = true;
+                showConsolidatedBtn.disabled = true;
+                showAddModalBtn.disabled = true;
+                gdriveBackupBtn.disabled = true;
+                gdriveRestoreBtn.disabled = true;
+                
+                allHomeworks = [];
+                photoSettings = {};
+                if (firestoreUnsubscribe) {
+                    firestoreUnsubscribe();
+                    firestoreUnsubscribe = null;
+                }
+                renderDashboard(); 
+            }
+
+            function listenToDataChanges() {
+                if (!currentUser) return;
+                if (firestoreUnsubscribe) firestoreUnsubscribe();
+
+                const docRef = db.collection('users').doc(currentUser.uid);
+                
+                firestoreUnsubscribe = docRef.onSnapshot(doc => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        allHomeworks = data.homeworks || [];
+                        photoSettings = data.settings || {};
+                        
+                        if (!photoSettings.urls || !photoSettings.animations || !Array.isArray(photoSettings.animations) || photoSettings.animations.length === 0) {
+                             loadDefaultSettings();
+                             updateDataInFirestore(); 
+                        }
+                        fixedPhotoCelebrationToggle.checked = photoSettings.fixed;
+                        firebaseStatus.textContent = '即時同步：已連線';
+                    } else {
+                        console.log("No data found for new user, initializing...");
+                        firebaseStatus.textContent = '即時同步：建立新資料...';
+                        allHomeworks = [];
+                        loadDefaultSettings();
+                        updateDataInFirestore();
+                    }
+                    if (screens.dashboard.classList.contains('active')) {
+                        renderDashboard();
+                    }
+                }, error => {
+                    console.error("Error listening to data:", error);
+                    firebaseStatus.textContent = '即時同步：連線錯誤';
+                    showToast('從雲端同步資料失敗！', 'error');
+                });
+            }
+
+            // --- Google Drive Functions (No changes needed) ---
+            async function backupToGoogleDrive() {
+                if (!gapi.client.getToken()) {
+                    showToast('權杖已過期或無效，請重新點擊登入按鈕以進行授權。', 'error');
+                    handleGoogleLogin();
+                    return;
+                }
+                gdriveBackupBtn.textContent = '備份中...';
+                gdriveBackupBtn.disabled = true;
+
+                const fullData = { version: '3.0', homeworks: allHomeworks, settings: photoSettings };
+                const content = JSON.stringify(fullData, null, 2);
+
+                try {
+                    const listResponse = await gapi.client.drive.files.list({
+                        q: `name='${GDRIVE_BACKUP_FILE_NAME}' and trashed=false`,
+                        spaces: 'drive', fields: 'files(id, name)', pageSize: 1
+                    });
+                    
+                    const files = listResponse.result.files;
+                    const fileId = (files && files.length > 0) ? files[0].id : null;
+
+                    if (fileId) {
+                        await gapi.client.request({
+                            path: `/upload/drive/v3/files/${fileId}`,
+                            method: 'PATCH', params: { uploadType: 'media' },
+                            headers: { 'Content-Type': 'application/json' }, body: content
+                        });
+                        showToast('成功更新 Google Drive 備份！');
+                    } else {
+                        const metadata = { name: GDRIVE_BACKUP_FILE_NAME, mimeType: 'application/json' };
+                        const createResponse = await gapi.client.drive.files.create({ resource: metadata, fields: 'id' });
+                        const newFileId = createResponse.result.id;
+                        await gapi.client.request({
+                            path: `/upload/drive/v3/files/${newFileId}`,
+                            method: 'PATCH', params: { uploadType: 'media' },
+                            headers: { 'Content-Type': 'application/json' }, body: content
+                        });
+                        showToast('成功建立 Google Drive 備份！');
+                    }
+                } catch (err) {
+                    console.error("備份失敗:", err);
+                    showToast('備份至 Google Drive 失敗！詳情請見 console。', 'error');
+                } finally {
+                    gdriveBackupBtn.textContent = '📤 備份至雲端硬碟';
+                    gdriveBackupBtn.disabled = false;
+                }
+            }
+
+            async function restoreFromGoogleDrive() {
+                if (!gapi.client.getToken()) {
+                     showToast('權杖已過期或無效，請重新點擊登入按鈕以進行授權。', 'error');
+                    handleGoogleLogin();
+                    return;
+                }
+                gdriveRestoreBtn.textContent = '讀取中...';
+                gdriveRestoreBtn.disabled = true;
+
+                try {
+                    const listResponse = await gapi.client.drive.files.list({
+                        q: `name='${GDRIVE_BACKUP_FILE_NAME}' and trashed=false`,
+                        spaces: 'drive', fields: 'files(id, name)', pageSize: 1
+                    });
+
+                    const files = listResponse.result.files;
+                    if (!files || files.length === 0) {
+                        showToast('在您的 Google Drive 中找不到備份檔案！', 'error');
+                        return;
+                    }
+                    const backupFileId = files[0].id;
+                    
+                    if (!confirm('從雲端硬碟還原將會「完全覆蓋」目前的所有即時同步資料，此操作無法復原。確定要繼續嗎？')) {
+                        return;
+                    }
+
+                    const response = await gapi.client.drive.files.get({ fileId: backupFileId, alt: 'media' });
+                    const importedData = response.result;
+                    
+                    if (importedData && (importedData.version === '3.0' || importedData.version === '2.0') && importedData.homeworks && importedData.settings) {
+                       allHomeworks = importedData.homeworks;
+                       photoSettings = importedData.settings;
+                       await updateDataInFirestore(); 
+                       showToast('資料從 Google Drive 還原並同步成功！');
+                       closeModal(cloudSyncModal);
+                    } else {
+                        showToast('Google Drive 備份檔格式錯誤或內容為空。', 'error');
+                    }
+                } catch (err) {
+                    console.error("還原失敗:", err);
+                    showToast('從 Google Drive 還原失敗！詳情請見 console。', 'error');
+                } finally {
+                    gdriveRestoreBtn.textContent = '📥 從雲端硬碟還原';
+                    gdriveRestoreBtn.disabled = false;
+                }
+            }
+            
+            // --- Local File Import/Export ---
+            const exportData = () => {
+                if (!currentUser) { showToast('請先登入！', 'error'); return; }
+                const fullData = { version: '3.0', homeworks: allHomeworks, settings: photoSettings };
+                const dataStr = JSON.stringify(fullData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(dataBlob);
+                const a = document.createElement('a'); a.href = url;
+                const date = new Date();
+                const dateString = `${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
+                a.download = `作業訂正備份_${dateString}_v3.json`; a.click(); URL.revokeObjectURL(url);
+            };
+            
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (!file || !currentUser) return;
+                if(!confirm('匯入檔案將會「完全覆蓋」目前的所有即時同步資料，確定要繼續嗎？')) {
+                    importFileInput.value = ''; return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if ((importedData.version === '3.0' || importedData.version === '2.0') && importedData.homeworks && importedData.settings) {
+                           allHomeworks = importedData.homeworks;
+                           photoSettings = importedData.settings;
+                           updateDataInFirestore();
+                           showToast('檔案匯入並同步成功！');
+                        } else {
+                           showToast('檔案格式錯誤，無法匯入。', 'error');
+                        }
+                    } catch (error) { showToast('讀取檔案失敗，請確認檔案是否為正確的 JSON 格式。', 'error');
+                    } finally { importFileInput.value = ''; }
+                };
+                reader.readAsText(file);
+            };
+
+            // ================================================================
+            // EVENT LISTENERS
+            // ================================================================
+
+            showAddModalBtn.addEventListener('click', () => openModal(addModal));
+            cancelAddBtn.addEventListener('click', () => closeModal(addModal));
+            showConsolidatedBtn.addEventListener('click', renderConsolidatedPage);
+            confirmAddBtn.addEventListener('click', addHomework);
+            dashboardGrid.addEventListener('click', (e) => { const card = e.target.closest('.homework-card'); if (card) { currentHomeworkId = parseInt(card.dataset.id, 10); renderTrackingPage(); switchScreen('tracking'); } });
+            consolidatedListContainer.addEventListener('click', (e) => {
+                const tag = e.target.closest('.correction-tag');
+                if (tag) {
+                    const studentId = parseInt(tag.dataset.studentId); const homeworkId = parseInt(tag.dataset.homeworkId);
+                    const homework = allHomeworks.find(hw => hw.id === homeworkId);
+                    const wasInProgress = homework.students.some(s => s.needsCorrection);
+                    const student = homework.students.find(s => s.id === studentId);
+                    if (student) {
+                        student.needsCorrection = false;
+                        if (wasInProgress && checkForCompletion(homework)) triggerRandomCelebration();
+                        updateDataInFirestore();
+                        tag.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+                        tag.style.transform = 'scale(0)'; tag.style.opacity = '0';
+                        setTimeout(() => { renderConsolidatedPage(); }, 300);
+                    } return;
+                }
+                const title = e.target.closest('.correction-homework-title');
+                if (title) { const homeworkId = parseInt(title.dataset.homeworkId, 10); if (homeworkId) { currentHomeworkId = homeworkId; renderTrackingPage(); switchScreen('tracking'); } }
+            });
+            studentChecklist.addEventListener('click', toggleStudentStatus);
+            deleteHomeworkBtn.addEventListener('click', deleteHomework);
+            selectAllBtn.addEventListener('click', toggleSelectAll);
+            backToDashboardBtn.addEventListener('click', () => { currentHomeworkId = null; renderDashboard(); switchScreen('dashboard'); });
+            backToDashboardFromConsolidatedBtn.addEventListener('click', () => { renderDashboard(); switchScreen('dashboard'); });
+            doneTrackingBtn.addEventListener('click', () => { renderDashboard(); switchScreen('dashboard'); });
+            editTitleBtn.addEventListener('click', () => {
+                const homework = allHomeworks.find(hw => hw.id === currentHomeworkId); if (!homework) return;
+                const newTitle = prompt('請輸入新的作業名稱：', homework.title);
+                if (newTitle && newTitle.trim() !== '') { homework.title = newTitle.trim(); updateDataInFirestore(); renderTrackingPage(); }
+            });
+            
+            photoSettingsBtn.addEventListener('click', () => {
+                renderSettingsList(photoUrlList, photoSettings.urls, 'url');
+                renderSettingsList(messageTextList, photoSettings.messages, 'message');
+                renderSettingsList(animationStyleList, photoSettings.animations, 'animation');
+                updateSelectAllState('url'); updateSelectAllState('message'); updateSelectAllState('animation');
+                openModal(photoSettingsModal);
+            });
+            closePhotoModalBtn.addEventListener('click', () => {
+                photoSettings.fixed = fixedPhotoCelebrationToggle.checked;
+                updateDataInFirestore();
+                closeModal(photoSettingsModal);
+            });
+            previewBtn.addEventListener('click', () => {
+                const enabledItems = photoSettings.urls.filter(p => p.enabled).length;
+                if(enabledItems === 0) { showToast('請至少啟用一個照片網址以進行預覽！', 'error'); return; }
+                createPhotoCelebration(previewCelebrationLayer);
+            });
+            addPhotoUrlBtn.addEventListener('click', addPhotoUrl);
+            addMessageTextBtn.addEventListener('click', addMessageText);
+            photoUrlList.addEventListener('click', handleSettingsListClick);
+            messageTextList.addEventListener('click', handleSettingsListClick);
+            animationStyleList.addEventListener('click', handleSettingsListClick);
+            selectAllCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('click', (e) => {
+                    const type = e.target.dataset.type;
+                    const isChecked = e.target.checked;
+                    let list, container;
+                    if (type === 'url') { list = photoSettings.urls; container = photoUrlList; }
+                    else if (type === 'message') { list = photoSettings.messages; container = messageTextList; }
+                    else if (type === 'animation') { list = photoSettings.animations; container = animationStyleList; }
+                    else return;
+                    list.forEach(item => item.enabled = isChecked);
+                    updateDataInFirestore();
+                    renderSettingsList(container, list, type);
+                    updateSelectAllState(type);
+                });
+            });
+
+            cloudSyncBtn.addEventListener('click', () => openModal(cloudSyncModal));
+            closeCloudModalBtn.addEventListener('click', () => closeModal(cloudSyncModal));
+            googleLoginBtn.addEventListener('click', handleGoogleLogin);
+            googleLogoutBtn.addEventListener('click', handleLogout);
+            gdriveBackupBtn.addEventListener('click', backupToGoogleDrive);
+            gdriveRestoreBtn.addEventListener('click', restoreFromGoogleDrive);
+            
+            localExportBtn.addEventListener('click', exportData);
+            localImportBtn.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', importData);
+
+            // ================================================================
+            // APPLICATION INITIALIZATION
+            // ================================================================
+            
+            const init = () => {
+                auth.onAuthStateChanged(user => {
+                    if (user) {
+                        // 當 Firebase 狀態為登入時，更新 UI
+                        if (!currentUser || currentUser.uid !== user.uid) { 
+                           updateUIForLogin(user);
+                        }
+                    } else {
+                        // 當 Firebase 狀態為登出時，更新 UI
+                        if (currentUser) {
+                           updateUIForLogout();
+                        }
+                    }
+                });
+                
+                switchScreen('dashboard'); 
+                setInterval(updateClock, 1000);
+                updateClock();
+            };
+            
+            init(); 
+        });
+    </script>
+</body>
+</html>
