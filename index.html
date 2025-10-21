@@ -850,6 +850,12 @@
                     }
                     if (screens.dashboard.classList.contains('active')) {
                         renderDashboard();
+                    } else if (screens.consolidated.classList.contains('active')) {
+                        // [修正] 當在總訂正名單頁面時，也即時更新
+                        renderConsolidatedPage();
+                    } else if (screens.tracking.classList.contains('active')) {
+                        // [修正] 當在個別作業追蹤頁面時，也即時更新
+                        renderTrackingPage();
                     }
                 }, error => {
                     console.error("Error listening to data:", error);
