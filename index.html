@@ -181,33 +181,32 @@
         .toast-notification.error { background-color: var(--delete-color); }
 	
         
-        /* 倒數計時器樣式 */
+      /* 倒數計時器樣式 */
         .timer-icon {
             display: inline-block;
-            margin-left: 8px;
-            font-size: 1.3em;
+            margin-left: 5px;
+            font-size: 0.9em;
             cursor: pointer;
             transition: transform 0.2s ease;
             vertical-align: middle;
+            opacity: 0.8;
         }
         .timer-icon:hover {
-            transform: scale(1.2);
+            transform: scale(1.15);
+            opacity: 1;
         }
         .timer-display {
-            display: inline-block;
-            margin-left: 8px;
-            padding: 4px 12px;
-            background: var(--secondary-color);
-            color: white;
-            border-radius: 20px;
-            font-weight: 700;
-            font-size: 1.1em;
-            min-width: 80px;
+            font-size: 0.75em;
+            font-weight: 600;
+            color: var(--secondary-color);
+            margin-top: 3px;
             text-align: center;
+            min-width: 45px;
         }
         .timer-display.timeout {
-            background: var(--delete-color);
+            color: var(--delete-color);
             animation: pulse 1s infinite;
+            font-weight: 700;
         }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -292,7 +291,7 @@
         <div class="modal-card">
             <h2>新增作業</h2>
             <div class="control-group" style="margin-bottom: 20px;"><label for="homework-title-input">作業名稱</label><input type="text" id="homework-title-input" placeholder="例如：數學習作 P.30-32"></div>
-            <div class="control-group"><label for="class-size-input">班級人數</label><input type="number" id="class-size-input" value="24" min="1"></div>
+            <div class="control-group"><label for="class-size-input">班級人數</label><input type="number" id="class-size-input" value="25" min="1"></div>
             <div class="checkbox-container" style="margin-top: 20px;">
                 <input type="checkbox" id="enable-timer-checkbox">
                 <label for="enable-timer-checkbox">啟用倒數計時功能</label>
@@ -632,10 +631,10 @@
                         tagsGrid.className = 'student-tags-grid';
                         hw.students.filter(s => s.needsCorrection).forEach(student => {
                             const wrapper = document.createElement('div');
-                            wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 5px;';
+                            wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 2px;';
                             
                             const tagContainer = document.createElement('div');
-                            tagContainer.style.cssText = 'display: flex; align-items: center; gap: 5px;';
+                            tagContainer.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 3px; width: 100%;';
                             
                             const tag = document.createElement('button');
                             tag.className = 'correction-tag';
@@ -657,21 +656,29 @@
                             wrapper.appendChild(tagContainer);
                             
                             const timerKey = `${hw.id}-${student.id}`;
-                            if (activeTimers[timerKey]) {
-                                const timerDisplay = document.createElement('div');
-                                timerDisplay.className = 'timer-display';
-                                timerDisplay.id = `timer-${timerKey}`;
-                                wrapper.appendChild(timerDisplay);
+                            const timerDisplay = document.createElement('div');
+                            timerDisplay.className = 'timer-display';
+                            timerDisplay.id = `timer-${timerKey}`;
+                            
+                            if (activeTimers[timerKey] || (student.timerRemaining !== null && student.timerRemaining !== undefined && student.timerRemaining >= 0)) {
+                                if (student.timerRemaining <= 0) {
+                                    timerDisplay.textContent = '時間到';
+                                    timerDisplay.classList.add('timeout');
+                                } else {
+                                    const minutes = Math.floor(student.timerRemaining / 60);
+                                    const seconds = student.timerRemaining % 60;
+                                    timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                                }
+                            } else {
+                                timerDisplay.textContent = '';
+                                timerDisplay.style.display = 'none';
                             }
                             
+                            wrapper.appendChild(timerDisplay);
                             tagsGrid.appendChild(wrapper);
                         });
                         card.appendChild(tagsGrid);
                         consolidatedListContainer.appendChild(card);
-                    });
-                    
-                    Object.keys(activeTimers).forEach(timerKey => {
-                        updateTimerDisplay(timerKey);
                     });
                 }
                 switchScreen('consolidated');
@@ -889,10 +896,16 @@
                 
                 if (student.timerRemaining === null || student.timerRemaining === undefined) {
                     student.timerRemaining = homework.timerDuration;
+                } else if (student.timerRemaining <= 0) {
+                    student.timerRemaining = homework.timerDuration;
                 }
+                
+                updateTimerDisplay(timerKey);
                 
                 activeTimers[timerKey] = setInterval(() => {
                     student.timerRemaining--;
+                    
+                    updateTimerDisplay(timerKey);
                     
                     if (student.timerRemaining <= 0) {
                         clearInterval(activeTimers[timerKey]);
@@ -900,16 +913,19 @@
                         student.timerRemaining = 0;
                         updateDataInFirestore();
                         showToast(`${studentId}號 時間到！`, 'error');
+                        updateTimerDisplay(timerKey);
+                        return;
                     }
                     
-                    updateTimerDisplay(timerKey);
-                    updateDataInFirestore();
+                    if (student.timerRemaining % 5 === 0) {
+                        updateDataInFirestore();
+                    }
                 }, 1000);
                 
-                renderConsolidatedPage();
+                showToast(`${studentId}號 開始計時！`, 'success');
             };
             
-            const updateTimerDisplay = (timerKey) => {
+         const updateTimerDisplay = (timerKey) => {
                 const [homeworkId, studentId] = timerKey.split('-').map(Number);
                 const homework = allHomeworks.find(hw => hw.id === homeworkId);
                 if (!homework) return;
@@ -920,13 +936,19 @@
                 const displayElement = document.getElementById(`timer-${timerKey}`);
                 if (!displayElement) return;
                 
-                if (student.timerRemaining <= 0) {
+                if (student.timerRemaining === null || student.timerRemaining === undefined) {
+                    displayElement.textContent = '';
+                    displayElement.style.display = 'none';
+                    displayElement.classList.remove('timeout');
+                } else if (student.timerRemaining <= 0) {
                     displayElement.textContent = '時間到';
+                    displayElement.style.display = 'block';
                     displayElement.classList.add('timeout');
                 } else {
                     const minutes = Math.floor(student.timerRemaining / 60);
                     const seconds = student.timerRemaining % 60;
                     displayElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    displayElement.style.display = 'block';
                     displayElement.classList.remove('timeout');
                 }
             };
@@ -1070,10 +1092,19 @@
                     if (screens.dashboard.classList.contains('active')) {
                         renderDashboard();
                     } else if (screens.consolidated.classList.contains('active')) {
-                        // [修正] 當在總訂正名單頁面時，也即時更新
                         renderConsolidatedPage();
+                        
+                        allHomeworks.forEach(hw => {
+                            if (hw.timerEnabled) {
+                                hw.students.forEach(student => {
+                                    const timerKey = `${hw.id}-${student.id}`;
+                                    if (student.timerRemaining > 0 && student.timerRemaining < hw.timerDuration && !activeTimers[timerKey]) {
+                                        console.log(`恢復計時器: ${timerKey}`);
+                                    }
+                                });
+                            }
+                        });
                     } else if (screens.tracking.classList.contains('active')) {
-                        // [修正] 當在個別作業追蹤頁面時，也即時更新
                         renderTrackingPage();
                     }
                 }, error => {
