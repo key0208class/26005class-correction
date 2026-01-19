@@ -179,65 +179,20 @@
         .toast-notification.show { top: 40px; opacity: 1; }
         .toast-notification.success { background-color: var(--primary-color); }
         .toast-notification.error { background-color: var(--delete-color); }
-	
+
+        /* V3.20 Timer Styles */
+        .correction-tag { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .timer-trigger { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; background: rgba(0,0,0,0.3); border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 5; transition: transform 0.2s; }
+        .timer-trigger:hover { transform: scale(1.15); background: rgba(255,255,255,0.3); }
+        .timer-display-text { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.6); color: #fff; font-size: 12px; line-height: 1.2; padding: 1px 0; font-family: 'Orbitron', monospace; font-weight: bold; pointer-events: none; }
+        .timer-finished-bg { animation: timer-flash 1s infinite alternate; }
+        @keyframes timer-flash { from { background-color: var(--warning-color); } to { background-color: var(--delete-color); box-shadow: 0 0 15px var(--delete-color); } }
         
-      /* 倒數計時器樣式 */
-        .timer-icon {
-            display: inline-block;
-            margin-left: 5px;
-            font-size: 0.9em;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-            vertical-align: middle;
-            opacity: 0.8;
-        }
-        .timer-icon:hover {
-            transform: scale(1.15);
-            opacity: 1;
-        }
-        .timer-display {
-            font-size: 0.75em;
-            font-weight: 600;
-            color: var(--secondary-color);
-            margin-top: 3px;
-            text-align: center;
-            min-width: 45px;
-        }
-        .timer-display.timeout {
-            color: var(--delete-color);
-            animation: pulse 1s infinite;
-            font-weight: 700;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-        .timer-setting-group {
-            display: none;
-            margin-top: 15px;
-            padding: 15px;
-            background: var(--input-bg);
-            border-radius: var(--control-border-radius);
-            border: 1px solid var(--card-border);
-        }
-        .timer-setting-group.active {
-            display: block;
-        }
-        .timer-inputs {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            margin-top: 10px;
-        }
-        .timer-inputs input {
-            flex: 1;
-            text-align: center;
-        }
-        .timer-inputs label {
-            font-weight: 600;
-            color: var(--text-color-primary);
-        }
-    </style>
+        /* Modal Toggle Styles */
+        .toggle-switch-container { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; }
+        .time-inputs { display: none; gap: 10px; margin-top: 10px; animation: slideDown 0.3s ease; }
+        .time-inputs.active { display: flex; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
@@ -287,28 +242,23 @@
             <div id="consolidated-list-container"></div>
         </div>
     </div>
-   <div id="add-homework-modal" class="modal">
+    <div id="add-homework-modal" class="modal">
         <div class="modal-card">
             <h2>新增作業</h2>
             <div class="control-group" style="margin-bottom: 20px;"><label for="homework-title-input">作業名稱</label><input type="text" id="homework-title-input" placeholder="例如：數學習作 P.30-32"></div>
-            <div class="control-group"><label for="class-size-input">班級人數</label><input type="number" id="class-size-input" value="25" min="1"></div>
-            <div class="checkbox-container" style="margin-top: 20px;">
-                <input type="checkbox" id="enable-timer-checkbox">
-                <label for="enable-timer-checkbox">啟用倒數計時功能</label>
-            </div>
-            <div id="timer-setting-group" class="timer-setting-group">
-                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-color-primary);">⏱️ 設定倒數時間</label>
-                <div class="timer-inputs">
-                    <div style="flex: 1;">
-                        <label for="timer-minutes-input">分鐘</label>
-                        <input type="number" id="timer-minutes-input" value="5" min="0" max="59">
-                    </div>
-                    <div style="flex: 1;">
-                        <label for="timer-seconds-input">秒數</label>
-                        <input type="number" id="timer-seconds-input" value="0" min="0" max="59">
-                    </div>
+            <div class="control-group" style="margin-bottom: 20px;"><label for="class-size-input">班級人數</label><input type="number" id="class-size-input" value="24" min="1"></div>
+            
+            <div class="control-group">
+                <div class="toggle-switch-container">
+                    <input type="checkbox" id="timer-toggle-checkbox" style="width: 20px; height: 20px; margin: 0;">
+                    <label for="timer-toggle-checkbox" style="margin: 0; cursor: pointer; color: white;">啟用個別倒數計時</label>
+                </div>
+                <div id="timer-settings-area" class="time-inputs">
+                    <div style="flex:1;"><label>分鐘</label><input type="number" id="timer-min-input" value="5" min="0"></div>
+                    <div style="flex:1;"><label>秒數</label><input type="number" id="timer-sec-input" value="0" min="0" max="59"></div>
                 </div>
             </div>
+
             <div class="modal-actions"><button id="cancel-add-btn" class="btn-secondary" style="flex: 1;">取消</button><button id="confirm-add-btn" class="btn-primary" style="flex: 1;">確認新增</button></div>
         </div>
     </div>
@@ -467,14 +417,49 @@
             const backToDashboardFromConsolidatedBtn = document.getElementById('back-to-dashboard-from-consolidated-btn');
             const addModal = document.getElementById('add-homework-modal');
             const homeworkTitleInput = document.getElementById('homework-title-input');
-            const classSizeInput = document.getElementById('class-size-input');
+           const classSizeInput = document.getElementById('class-size-input');
             const cancelAddBtn = document.getElementById('cancel-add-btn');
             const confirmAddBtn = document.getElementById('confirm-add-btn');
+            // Timer Elements
+            const timerToggleCheckbox = document.getElementById('timer-toggle-checkbox');
+            const timerSettingsArea = document.getElementById('timer-settings-area');
+            const timerMinInput = document.getElementById('timer-min-input');
+            const timerSecInput = document.getElementById('timer-sec-input');
+            
             const clockElements = document.querySelectorAll('.digital-clock');
             const editTitleBtn = document.getElementById('edit-title-btn');
             const doneTrackingBtn = document.getElementById('done-tracking-btn');
             const importFileInput = document.getElementById('import-file-input');
             const celebrationContainer = document.getElementById('celebration-container');
+            
+            // Timer Toggle Logic
+            timerToggleCheckbox.addEventListener('change', (e) => {
+                if(e.target.checked) timerSettingsArea.classList.add('active');
+                else timerSettingsArea.classList.remove('active');
+            });
+            
+            // Global Timer Loop (Update every second)
+            setInterval(() => {
+                const now = Date.now();
+                document.querySelectorAll('.correction-tag[data-timer-end]').forEach(tag => {
+                    const endTime = parseInt(tag.dataset.timerEnd);
+                    if (!endTime) return;
+                    
+                    const timeLeft = Math.max(0, Math.ceil((endTime - now) / 1000));
+                    const display = tag.querySelector('.timer-display-text');
+                    
+                    if (timeLeft <= 0) {
+                        if (display) display.textContent = "時間到";
+                        tag.classList.add('timer-finished-bg');
+                    } else {
+                        const m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+                        const s = (timeLeft % 60).toString().padStart(2, '0');
+                        if (display) display.textContent = `${m}:${s}`;
+                        tag.classList.remove('timer-finished-bg');
+                    }
+                });
+            }, 500);
+
             const photoSettingsModal = document.getElementById('photo-settings-modal');
             const fixedPhotoCelebrationToggle = document.getElementById('fixed-photo-celebration-toggle');
             const photoUrlInput = document.getElementById('photo-url-input');
@@ -499,11 +484,6 @@
             const gdriveRestoreBtn = document.getElementById('gdrive-restore-btn');
             const localExportBtn = document.getElementById('local-export-btn');
             const localImportBtn = document.getElementById('local-import-btn');
-	
-            const enableTimerCheckbox = document.getElementById('enable-timer-checkbox');
-            const timerSettingGroup = document.getElementById('timer-setting-group');
-            const timerMinutesInput = document.getElementById('timer-minutes-input');
-            const timerSecondsInput = document.getElementById('timer-seconds-input');
 
             // --- Global State ---
             const DEFAULT_PHOTO_URL = 'https://class.kh.edu.tw/sites/26005/album_file/1/hamclass.png';
@@ -518,8 +498,7 @@
             let photoSettings = {};
             let currentHomeworkId = null;
             let currentUser = null; 
-            let firestoreUnsubscribe = null;
-            let activeTimers = {}; 
+            let firestoreUnsubscribe = null; 
             
             // ================================================================
             // DATA & STATE MANAGEMENT
@@ -551,9 +530,6 @@
             };
 
             const switchScreen = (screenName) => {
-                if (screenName !== 'consolidated') {
-                    stopAllTimers();
-                }
                 Object.values(screens).forEach(s => s.classList.remove('active'));
                 screens[screenName].classList.add('active');
             };
@@ -621,63 +597,24 @@
                     homeworksToCorrect.forEach(hw => {
                         const card = document.createElement('div');
                         card.className = 'correction-homework-card';
-                        const title = document.createElement('h3');
-                        title.className = 'correction-homework-title';
-                        title.textContent = hw.title;
-                        title.dataset.homeworkId = hw.id;
-                        card.appendChild(title);
-
-                        const tagsGrid = document.createElement('div');
-                        tagsGrid.className = 'student-tags-grid';
+                        
+                        // 使用壓縮的 innerHTML 避免空白節點
+                        let tagsHtml = '';
                         hw.students.filter(s => s.needsCorrection).forEach(student => {
-                            const wrapper = document.createElement('div');
-                            wrapper.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 2px;';
+                            const isTimerEnabled = hw.timerConfig && hw.timerConfig.enabled;
+                            const timerEndAttr = student.timerEnd ? ` data-timer-end="${student.timerEnd}"` : '';
+                            const timerClass = (student.timerEnd && student.timerEnd < Date.now()) ? ' timer-finished-bg' : '';
                             
-                            const tagContainer = document.createElement('div');
-                            tagContainer.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 3px; width: 100%;';
-                            
-                            const tag = document.createElement('button');
-                            tag.className = 'correction-tag';
-                            tag.textContent = student.id;
-                            tag.dataset.studentId = student.id;
-                            tag.dataset.homeworkId = hw.id;
-                            tagContainer.appendChild(tag);
-                            
-                            if (hw.timerEnabled) {
-                                const timerIcon = document.createElement('span');
-                                timerIcon.className = 'timer-icon';
-                                timerIcon.textContent = '⏱️';
-                                timerIcon.dataset.studentId = student.id;
-                                timerIcon.dataset.homeworkId = hw.id;
-                                timerIcon.title = '點擊開始倒數計時';
-                                tagContainer.appendChild(timerIcon);
+                            // 產生按鈕內容 (數字 + 選擇性圖示 + 選擇性倒數顯示)
+                            let innerContent = `<span style="font-size:1.2em;">${student.id}</span>`;
+                            if (isTimerEnabled) {
+                                innerContent += `<span class="timer-trigger" title="開始倒數">⏱️</span><div class="timer-display-text">${student.timerEnd ? '計算中...' : ''}</div>`;
                             }
                             
-                            wrapper.appendChild(tagContainer);
-                            
-                            const timerKey = `${hw.id}-${student.id}`;
-                            const timerDisplay = document.createElement('div');
-                            timerDisplay.className = 'timer-display';
-                            timerDisplay.id = `timer-${timerKey}`;
-                            
-                            if (activeTimers[timerKey] || (student.timerRemaining !== null && student.timerRemaining !== undefined && student.timerRemaining >= 0)) {
-                                if (student.timerRemaining <= 0) {
-                                    timerDisplay.textContent = '時間到';
-                                    timerDisplay.classList.add('timeout');
-                                } else {
-                                    const minutes = Math.floor(student.timerRemaining / 60);
-                                    const seconds = student.timerRemaining % 60;
-                                    timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                                }
-                            } else {
-                                timerDisplay.textContent = '';
-                                timerDisplay.style.display = 'none';
-                            }
-                            
-                            wrapper.appendChild(timerDisplay);
-                            tagsGrid.appendChild(wrapper);
+                            tagsHtml += `<button class="correction-tag${timerClass}" data-student-id="${student.id}" data-homework-id="${hw.id}"${timerEndAttr}>${innerContent}</button>`;
                         });
-                        card.appendChild(tagsGrid);
+
+                        card.innerHTML = `<h3 class="correction-homework-title" data-homework-id="${hw.id}">${hw.title}</h3><div class="student-tags-grid">${tagsHtml}</div>`;
                         consolidatedListContainer.appendChild(card);
                     });
                 }
@@ -717,34 +654,17 @@
                 const classSize = parseInt(classSizeInput.value, 10);
                 if (!title || isNaN(classSize) || classSize < 1) { showToast('請輸入有效的作業名稱和班級人數！', 'error'); return; }
                 
-                const timerEnabled = enableTimerCheckbox.checked;
-                let timerDuration = null;
-                
-                if (timerEnabled) {
-                    const minutes = parseInt(timerMinutesInput.value, 10) || 0;
-                    const seconds = parseInt(timerSecondsInput.value, 10) || 0;
-                    timerDuration = minutes * 60 + seconds;
-                    
-                    if (timerDuration <= 0) {
-                        showToast('倒數時間必須大於 0 秒！', 'error');
-                        return;
-                    }
-                }
-                
+                // Timer settings
+                const hasTimer = timerToggleCheckbox.checked;
+                const timerDuration = hasTimer ? (parseInt(timerMinInput.value||0)*60 + parseInt(timerSecInput.value||0)) : 0;
+
                 const newHomework = { 
                     id: Date.now(), 
                     title, 
                     date: new Date().toLocaleDateString('zh-TW'), 
-                    students: Array.from({ length: classSize }, (_, i) => ({ 
-                        id: i + 1, 
-                        needsCorrection: true,
-                        timerStartTime: null,
-                        timerRemaining: timerDuration
-                    })),
-                    timerEnabled: timerEnabled,
-                    timerDuration: timerDuration
+                    timerConfig: { enabled: hasTimer, duration: timerDuration },
+                    students: Array.from({ length: classSize }, (_, i) => ({ id: i + 1, needsCorrection: true, timerEnd: null })) 
                 };
-                
                 allHomeworks.push(newHomework);
                 updateDataInFirestore();
                 closeModal(addModal);
@@ -761,15 +681,7 @@
             const openModal = (modal) => modal.classList.add('visible');
             const closeModal = (modal) => {
                 modal.classList.remove('visible');
-                if (modal === addModal) {
-                    setTimeout(() => { 
-                        homeworkTitleInput.value = '';
-                        enableTimerCheckbox.checked = false;
-                        timerSettingGroup.classList.remove('active');
-                        timerMinutesInput.value = '5';
-                        timerSecondsInput.value = '0';
-                    }, 300);
-                }
+                if (modal === addModal) setTimeout(() => { homeworkTitleInput.value = ''; }, 300);
             };
 
             function showToast(message, type = 'success') {
@@ -880,86 +792,6 @@
                 container.appendChild(photo); container.appendChild(message);
                 setTimeout(() => clearCelebration(container), 8000);
             };
-            const startTimer = (homeworkId, studentId) => {
-                const homework = allHomeworks.find(hw => hw.id === homeworkId);
-                if (!homework || !homework.timerEnabled) return;
-                
-                const student = homework.students.find(s => s.id === studentId);
-                if (!student) return;
-                
-                const timerKey = `${homeworkId}-${studentId}`;
-                
-                if (activeTimers[timerKey]) {
-                    showToast('此計時器已在運行中！', 'error');
-                    return;
-                }
-                
-                if (student.timerRemaining === null || student.timerRemaining === undefined) {
-                    student.timerRemaining = homework.timerDuration;
-                } else if (student.timerRemaining <= 0) {
-                    student.timerRemaining = homework.timerDuration;
-                }
-                
-                updateTimerDisplay(timerKey);
-                
-                activeTimers[timerKey] = setInterval(() => {
-                    student.timerRemaining--;
-                    
-                    updateTimerDisplay(timerKey);
-                    
-                    if (student.timerRemaining <= 0) {
-                        clearInterval(activeTimers[timerKey]);
-                        delete activeTimers[timerKey];
-                        student.timerRemaining = 0;
-                        updateDataInFirestore();
-                        showToast(`${studentId}號 時間到！`, 'error');
-                        updateTimerDisplay(timerKey);
-                        return;
-                    }
-                    
-                    if (student.timerRemaining % 5 === 0) {
-                        updateDataInFirestore();
-                    }
-                }, 1000);
-                
-                showToast(`${studentId}號 開始計時！`, 'success');
-            };
-            
-         const updateTimerDisplay = (timerKey) => {
-                const [homeworkId, studentId] = timerKey.split('-').map(Number);
-                const homework = allHomeworks.find(hw => hw.id === homeworkId);
-                if (!homework) return;
-                
-                const student = homework.students.find(s => s.id === studentId);
-                if (!student) return;
-                
-                const displayElement = document.getElementById(`timer-${timerKey}`);
-                if (!displayElement) return;
-                
-                if (student.timerRemaining === null || student.timerRemaining === undefined) {
-                    displayElement.textContent = '';
-                    displayElement.style.display = 'none';
-                    displayElement.classList.remove('timeout');
-                } else if (student.timerRemaining <= 0) {
-                    displayElement.textContent = '時間到';
-                    displayElement.style.display = 'block';
-                    displayElement.classList.add('timeout');
-                } else {
-                    const minutes = Math.floor(student.timerRemaining / 60);
-                    const seconds = student.timerRemaining % 60;
-                    displayElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                    displayElement.style.display = 'block';
-                    displayElement.classList.remove('timeout');
-                }
-            };
-            
-            const stopAllTimers = () => {
-                Object.keys(activeTimers).forEach(key => {
-                    clearInterval(activeTimers[key]);
-                });
-                activeTimers = {};
-            };
-            
             const triggerRandomCelebration = () => {
                 const effects = [ createConfetti, createFireworks, createBalloons, createStarShower, createPopupMessage, createBouncingEmojis, createPhotoCelebration ];
                 if (photoSettings.fixed) { createPhotoCelebration(); } 
@@ -1092,19 +924,10 @@
                     if (screens.dashboard.classList.contains('active')) {
                         renderDashboard();
                     } else if (screens.consolidated.classList.contains('active')) {
+                        // [修正] 當在總訂正名單頁面時，也即時更新
                         renderConsolidatedPage();
-                        
-                        allHomeworks.forEach(hw => {
-                            if (hw.timerEnabled) {
-                                hw.students.forEach(student => {
-                                    const timerKey = `${hw.id}-${student.id}`;
-                                    if (student.timerRemaining > 0 && student.timerRemaining < hw.timerDuration && !activeTimers[timerKey]) {
-                                        console.log(`恢復計時器: ${timerKey}`);
-                                    }
-                                });
-                            }
-                        });
                     } else if (screens.tracking.classList.contains('active')) {
+                        // [修正] 當在個別作業追蹤頁面時，也即時更新
                         renderTrackingPage();
                     }
                 }, error => {
@@ -1257,39 +1080,63 @@
             confirmAddBtn.addEventListener('click', addHomework);
             dashboardGrid.addEventListener('click', (e) => { const card = e.target.closest('.homework-card'); if (card) { currentHomeworkId = parseInt(card.dataset.id, 10); renderTrackingPage(); switchScreen('tracking'); } });
             consolidatedListContainer.addEventListener('click', (e) => {
-                const timerIcon = e.target.closest('.timer-icon');
-                if (timerIcon) {
-                    const studentId = parseInt(timerIcon.dataset.studentId);
-                    const homeworkId = parseInt(timerIcon.dataset.homeworkId);
-                    startTimer(homeworkId, studentId);
+                // 1. 檢查是否點擊了倒數計時觸發器 (Timer Trigger)
+                const timerTrigger = e.target.closest('.timer-trigger');
+                if (timerTrigger) {
+                    e.stopPropagation(); // 防止觸發外層的完成訂正
+                    const tag = timerTrigger.closest('.correction-tag');
+                    const studentId = parseInt(tag.dataset.studentId);
+                    const homeworkId = parseInt(tag.dataset.homeworkId);
+                    
+                    const homework = allHomeworks.find(hw => hw.id === homeworkId);
+                    const student = homework.students.find(s => s.id === studentId);
+                    
+                    if (homework && student && homework.timerConfig && homework.timerConfig.enabled) {
+                        // 設定結束時間 = 現在 + 設定秒數
+                        const duration = homework.timerConfig.duration || 300;
+                        student.timerEnd = Date.now() + (duration * 1000);
+                        updateDataInFirestore();
+                        renderConsolidatedPage(); // 重新渲染以更新狀態
+                    }
                     return;
                 }
-                
+
+                // 2. 檢查是否點擊了訂正標籤 (Mark as Done)
                 const tag = e.target.closest('.correction-tag');
                 if (tag) {
-                    const studentId = parseInt(tag.dataset.studentId); 
+                    const studentId = parseInt(tag.dataset.studentId);
                     const homeworkId = parseInt(tag.dataset.homeworkId);
                     const homework = allHomeworks.find(hw => hw.id === homeworkId);
+                    
+                    // 檢查作業是否存在 (防止資料異常)
+                    if (!homework) return;
+
                     const wasInProgress = homework.students.some(s => s.needsCorrection);
                     const student = homework.students.find(s => s.id === studentId);
+                    
                     if (student) {
                         student.needsCorrection = false;
-                        
-                        const timerKey = `${homeworkId}-${studentId}`;
-                        if (activeTimers[timerKey]) {
-                            clearInterval(activeTimers[timerKey]);
-                            delete activeTimers[timerKey];
-                        }
-                        
+                        student.timerEnd = null; // 清除倒數狀態
                         if (wasInProgress && checkForCompletion(homework)) triggerRandomCelebration();
                         updateDataInFirestore();
                         tag.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
-                        tag.style.transform = 'scale(0)'; tag.style.opacity = '0';
+                        tag.style.transform = 'scale(0)'; 
+                        tag.style.opacity = '0';
                         setTimeout(() => { renderConsolidatedPage(); }, 300);
-                    } return;
+                    } 
+                    return;
                 }
+                
+                // 3. 檢查是否點擊了標題 (進入追蹤頁面)
                 const title = e.target.closest('.correction-homework-title');
-                if (title) { const homeworkId = parseInt(title.dataset.homeworkId, 10); if (homeworkId) { currentHomeworkId = homeworkId; renderTrackingPage(); switchScreen('tracking'); } }
+                if (title) { 
+                    const homeworkId = parseInt(title.dataset.homeworkId, 10); 
+                    if (homeworkId) { 
+                        currentHomeworkId = homeworkId; 
+                        renderTrackingPage(); 
+                        switchScreen('tracking'); 
+                    } 
+                }
             });
             studentChecklist.addEventListener('click', toggleStudentStatus);
             deleteHomeworkBtn.addEventListener('click', deleteHomework);
@@ -1351,21 +1198,6 @@
             localExportBtn.addEventListener('click', exportData);
             localImportBtn.addEventListener('click', () => importFileInput.click());
             importFileInput.addEventListener('change', importData);
-            
-            enableTimerCheckbox.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    timerSettingGroup.classList.add('active');
-                } else {
-                    timerSettingGroup.classList.remove('active');
-                }
-            });
-            
-            addModal.addEventListener('click', (e) => {
-                if (e.target === addModal) {
-                    enableTimerCheckbox.checked = false;
-                    timerSettingGroup.classList.remove('active');
-                }
-            });
 
             // ================================================================
             // APPLICATION INITIALIZATION
