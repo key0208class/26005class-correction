@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雲訂正V3.3.0</title>
+    <title>雲訂正V3.3.1</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
@@ -241,7 +241,6 @@
                     <button id="photo-settings-btn" class="btn-secondary" disabled>👍 慶祝設定</button>
                     <button id="cloud-sync-btn" class="btn-secondary">☁️ 雲端服務與備份</button>
                     <button id="show-consolidated-btn" class="btn-warning" disabled>查看總訂正名單</button>
-                    <button id="preset-manage-btn" class="btn-secondary" disabled>📋 項目管理</button>
                     <button id="show-add-modal-btn" class="btn-primary" disabled>新增作業</button>
                 </div>
             </div>
@@ -418,6 +417,12 @@
                 <button id="google-logout-btn" class="btn-secondary" style="display: none;">👋 登出</button>
             </div>
             
+            <div style="margin-bottom: 25px;">
+                <h3 style="text-align: center; font-weight: 500; color: var(--text-color-secondary); margin-bottom: 10px;">📋 快速項目管理</h3>
+                <p style="text-align: center; font-size: 0.85em; color: var(--text-color-secondary); margin: 0 0 15px;">新增、修改、排序或停用「國造句」「查生字」等常用項目（需先登入並等待資料確認）</p>
+                <button id="preset-manage-btn" class="btn-primary" style="width: 100%;" disabled>📋 開啟項目管理</button>
+            </div>
+
             <hr style="border: none; border-top: 1px solid var(--card-border); margin: 25px 0;">
 
             <h3 style="text-align: center; font-weight: 500; color: var(--text-color-secondary); margin-bottom: 20px;">手動備份 (Google Drive)</h3>
@@ -1587,7 +1592,7 @@ function listenToDataChanges() {
             presetClearBtn.addEventListener('click', () => { presetSuffixInput.value = ''; applyPreset(null); });
             presetSuffixInput.addEventListener('input', updatePresetPreview);
             homeworkTitleInput.addEventListener('input', updatePresetPreview);
-            presetManageBtn.addEventListener('click', openPresetManager);
+            presetManageBtn.addEventListener('click', () => { closeModal(cloudSyncModal); openPresetManager(); });
             closePresetManagerBtn.addEventListener('click', () => closeModal(presetManagerModal));
             presetSaveBtn.addEventListener('click', savePresetFromForm);
             presetCancelEditBtn.addEventListener('click', resetPresetForm);
