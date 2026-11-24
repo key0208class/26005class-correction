@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雲訂正V3.2.1</title>
+    <title>雲訂正V3.2.2</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
@@ -179,6 +179,7 @@
         .toast-notification.show { top: 40px; opacity: 1; }
         .toast-notification.success { background-color: var(--primary-color); }
         .toast-notification.error { background-color: var(--delete-color); }
+        .toast-notification.warn { background-color: var(--warning-color); color: #1d1d1f; }
 
         /* V3.20 Timer Styles */
         .correction-tag { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -336,6 +337,9 @@
             <hr style="border: none; border-top: 1px solid var(--card-border); margin: 25px 0;">
 
             <h3 style="text-align: center; font-weight: 500; color: var(--text-color-secondary); margin-bottom: 20px;">手動備份 (Google Drive)</h3>
+            <div id="drive-status" style="text-align: center; margin-bottom: 10px; font-size: 0.9em; color: var(--text-color-secondary);">Drive：載入中…</div>
+            <button id="drive-authorize-btn" class="btn-warning" style="display: none; width: 100%; margin-bottom: 15px;">🔑 授權 Google Drive</button>
+            <div style="text-align: center; font-size: 0.8em; color: var(--text-color-secondary); margin-bottom: 15px;">只在按下時備份；雲端僅保留最新一份（覆蓋舊檔）</div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
                 <button id="gdrive-backup-btn" class="btn-primary" disabled>📤 備份至雲端硬碟</button>
                 <button id="gdrive-restore-btn" class="btn-success" disabled>📥 從雲端硬碟還原</button>
@@ -359,7 +363,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore-compat.js"></script>
     
-    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     
     <script>
         // ================================================================
@@ -391,16 +395,6 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
         
-        let gapiInited = false;
-        
-        // [修正] 大幅簡化初始化流程
-        window.gapiLoaded = () => {
-            gapi.load('client', () => { 
-                console.log("GAPI client loaded.");
-                gapiInited = true; 
-            });
-        };
-
         document.addEventListener('DOMContentLoaded', () => {
             // --- Element Selectors ---
             const screens = { dashboard: document.getElementById('dashboard-screen'), tracking: document.getElementById('tracking-screen'), consolidated: document.getElementById('consolidated-screen') };
@@ -520,6 +514,8 @@ const setSyncStatus = (text, level = 'ok') => {
                 showAddModalBtn.disabled = !ready;
                 showConsolidatedBtn.disabled = !ready;
                 photoSettingsBtn.disabled = !ready;
+                gdriveBackupBtn.disabled = !ready;
+                gdriveRestoreBtn.disabled = !ready;
             };
 
             const restoreFromServerState = () => {
@@ -883,43 +879,12 @@ const setSyncStatus = (text, level = 'ok') => {
             // AUTH & CLOUD SYNC FUNCTIONS (UNIFIED FLOW)
             // =================================================================
 
-            function handleGoogleLogin() {
-                if (!gapiInited) {
-                    showToast("Google API 尚未初始化，請稍後再試。", "error");
-                    return;
-                }
+function handleGoogleLogin() {
+                // V3.2.2：Firebase 登入只負責身分與資料同步；Drive 授權另行處理
                 const provider = new firebase.auth.GoogleAuthProvider();
-                // [修正] 在登入請求中直接加入 Google Drive 的權限範圍 (Scope)
-                provider.addScope(GAPI_SCOPES);
-
                 auth.signInWithPopup(provider)
-                    .then(async (result) => {
-                        // 從登入成功的結果中取得最重要的 credential
-                        const credential = result.credential;
-                        if (!credential) {
-                           throw new Error("無法從 Firebase 取得憑證。");
-                        }
-                        // 從 credential 中取得可用於 GAPI 的 access token
-                        const accessToken = credential.accessToken;
-                        
-                        // 將此 token 設定給 GAPI client
-                        gapi.client.setToken({ access_token: accessToken });
-
-                        // 初始化 Google Drive API (V3)
-                        await gapi.client.init({
-                            apiKey: GAPI_API_KEY,
-                            discoveryDocs: GAPI_DISCOVERY_DOCS,
-                        });
-                        
-                        showToast("Google 登入及雲端硬碟授權成功！");
-                        console.log("Firebase & GAPI unified sign-in successful.");
-
-                        // 啟用相關按鈕
-                        gdriveBackupBtn.disabled = false;
-                        gdriveRestoreBtn.disabled = false;
-                    })
                     .catch((error) => {
-                        console.error("統一登入流程失敗:", error);
+                        console.error("Firebase 登入失敗:", error);
                         if (error.code !== 'auth/popup-closed-by-user') {
                             showToast(`登入失敗: ${error.message}`, 'error');
                         }
@@ -927,30 +892,23 @@ const setSyncStatus = (text, level = 'ok') => {
             }
 
             function handleLogout() {
-                // 登出時，同時清除 GAPI 的 token 並從 Firebase 登出
-                gapi.client.setToken('');
+                clearDriveToken();
                 auth.signOut();
                 showToast("已成功登出");
             }
 
             function updateUIForLogin(user) {
                 currentUser = user;
+                // 權杖若屬於其他 Google 帳號，立即清除，避免備份到錯誤的雲端硬碟
+                if (driveToken && driveToken.email && driveToken.email.toLowerCase() !== (user.email || '').toLowerCase()) {
+                    clearDriveToken();
+                }
                 googleLoginBtn.style.display = 'none';
                 googleLogoutBtn.style.display = 'block';
                 googleUserInfo.textContent = `已登入為：${user.displayName || user.email}`;
-                firebaseStatus.textContent = '即時同步：連線中...';
-                
                 dataReady = false;
                 updateControlsEnabled();
-
-                // ==============================[BUG FIX START]==============================
-                // [修正] 當使用者登入時，無論如何都應該啟用Google Drive按鈕。
-                // 按鈕本身的功能已包含權杖過期時的重新授權檢查，因此在此處禁用會導致不良的使用者體驗。
-                // 舊的程式碼會將按鈕禁用，造成使用者重新整理頁面後，即使是登入狀態，按鈕也無法點擊。
-                gdriveBackupBtn.disabled = false;
-                gdriveRestoreBtn.disabled = false;
-                // ===============================[BUG FIX END]===============================
-
+                refreshDriveStatus();
                 listenToDataChanges();
             }
 
@@ -960,25 +918,21 @@ const setSyncStatus = (text, level = 'ok') => {
                 googleLogoutBtn.style.display = 'none';
                 googleUserInfo.textContent = '狀態：尚未登入';
                 firebaseStatus.textContent = '即時同步：未連線';
-                
-                photoSettingsBtn.disabled = true;
-                showConsolidatedBtn.disabled = true;
-                showAddModalBtn.disabled = true;
-                gdriveBackupBtn.disabled = true;
-                gdriveRestoreBtn.disabled = true;
-                
-                allHomeworks = [];
-                photoSettings = {};
+                firebaseStatus.style.color = '';
                 dataReady = false;
                 lastServerState = null;
+                updateControlsEnabled();
+                allHomeworks = [];
+                photoSettings = {};
                 if (firestoreUnsubscribe) {
                     firestoreUnsubscribe();
                     firestoreUnsubscribe = null;
                 }
-                renderDashboard(); 
+                renderDashboard();
+                refreshDriveStatus();
             }
 
-function listenToDataChanges() {
+            function listenToDataChanges() {
                 if (!currentUser) return;
                 if (firestoreUnsubscribe) firestoreUnsubscribe();
 
@@ -1025,114 +979,286 @@ function listenToDataChanges() {
                 });
             }
 
-                        // --- Google Drive Functions (No changes needed) ---
-            async function backupToGoogleDrive() {
-                if (!dataReady) {
-                    showToast('雲端資料尚未確認，已取消備份，以免用空資料覆蓋雲端備份。', 'error');
-                    return;
-                }
-                if (allHomeworks.length === 0 && !confirm('目前沒有任何作業資料，確定要把「空資料」備份到 Google Drive 覆蓋舊備份嗎？')) {
-                    return;
-                }
-                if (!gapi.client.getToken()) {
-                    showToast('權杖已過期或無效，請重新點擊登入按鈕以進行授權。', 'error');
-                    handleGoogleLogin();
-                    return;
-                }
-                gdriveBackupBtn.textContent = '備份中...';
-                gdriveBackupBtn.disabled = true;
+// --- Google Drive Functions (V3.2.2：GIS 授權 + sessionStorage 權杖 + Drive REST API) ---
+            const DRIVE_TOKEN_KEY = 'hcs_drive_token';             // sessionStorage：同一分頁重新整理後仍有效
+            const DRIVE_LAST_BACKUP_KEY = 'hcs_drive_last_backup'; // localStorage：只存上次備份時間
+            const DRIVE_EXPIRY_MARGIN_MS = 60 * 1000;
+            const DRIVE_DEFAULT_LIFETIME_SEC = 3600;
+            const driveStatusEl = document.getElementById('drive-status');
+            const driveAuthorizeBtn = document.getElementById('drive-authorize-btn');
 
-                const fullData = { version: '3.0', homeworks: allHomeworks, settings: photoSettings };
-                const content = JSON.stringify(fullData, null, 2);
+            let tokenClient = null;
+            let driveToken = null;          // { access_token, expires_at, email }
+            let pendingDriveRequest = null; // { resolve, reject }
 
+            const isDriveTokenValid = () => !!(driveToken && driveToken.access_token && Date.now() < driveToken.expires_at);
+
+            const saveDriveToken = (accessToken, expiresInSec, email) => {
+                driveToken = {
+                    access_token: accessToken,
+                    expires_at: Date.now() + (expiresInSec || DRIVE_DEFAULT_LIFETIME_SEC) * 1000 - DRIVE_EXPIRY_MARGIN_MS,
+                    email: email || ''
+                };
+                try { sessionStorage.setItem(DRIVE_TOKEN_KEY, JSON.stringify(driveToken)); } catch (_) { /* 無法寫入時僅保留於記憶體 */ }
+            };
+
+            function loadDriveTokenFromSession() {
                 try {
-                    const listResponse = await gapi.client.drive.files.list({
-                        q: `name='${GDRIVE_BACKUP_FILE_NAME}' and trashed=false`,
-                        spaces: 'drive', fields: 'files(id, name)', pageSize: 1
-                    });
-                    
-                    const files = listResponse.result.files;
-                    const fileId = (files && files.length > 0) ? files[0].id : null;
+                    const saved = JSON.parse(sessionStorage.getItem(DRIVE_TOKEN_KEY) || 'null');
+                    driveToken = (saved && saved.access_token && saved.expires_at) ? saved : null;
+                } catch (_) { driveToken = null; }
+            }
 
-                    if (fileId) {
-                        await gapi.client.request({
-                            path: `/upload/drive/v3/files/${fileId}`,
-                            method: 'PATCH', params: { uploadType: 'media' },
-                            headers: { 'Content-Type': 'application/json' }, body: content
-                        });
-                        showToast('成功更新 Google Drive 備份！');
-                    } else {
-                        const metadata = { name: GDRIVE_BACKUP_FILE_NAME, mimeType: 'application/json' };
-                        const createResponse = await gapi.client.drive.files.create({ resource: metadata, fields: 'id' });
-                        const newFileId = createResponse.result.id;
-                        await gapi.client.request({
-                            path: `/upload/drive/v3/files/${newFileId}`,
-                            method: 'PATCH', params: { uploadType: 'media' },
-                            headers: { 'Content-Type': 'application/json' }, body: content
-                        });
-                        showToast('成功建立 Google Drive 備份！');
+            function clearDriveToken() {
+                driveToken = null;
+                try { sessionStorage.removeItem(DRIVE_TOKEN_KEY); } catch (_) {}
+                refreshDriveStatus();
+            }
+
+            const setDriveBusy = (btn, busy, text) => {
+                btn.textContent = text;
+                const isAuthorize = btn === driveAuthorizeBtn;
+                btn.disabled = busy || !currentUser || (!isAuthorize && !dataReady);
+            };
+
+            function refreshDriveStatus() {
+                if (!driveStatusEl) return;
+                const last = localStorage.getItem(DRIVE_LAST_BACKUP_KEY);
+                const lastText = last ? `　上次備份：${last}` : '';
+                if (!currentUser) {
+                    driveStatusEl.textContent = 'Drive：請先登入 Google 帳號';
+                    driveStatusEl.style.color = 'var(--text-color-secondary)';
+                    driveAuthorizeBtn.style.display = 'none';
+                    driveAuthorizeBtn.disabled = true;
+                    return;
+                }
+                driveAuthorizeBtn.disabled = false;
+                if (isDriveTokenValid()) {
+                    const until = new Date(driveToken.expires_at).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+                    driveStatusEl.textContent = `✅ Drive 已授權（約 ${until} 前有效，過期後點備份會自動續期）${lastText}`;
+                    driveStatusEl.style.color = 'var(--primary-color)';
+                    driveAuthorizeBtn.style.display = 'none';
+                } else {
+                    driveStatusEl.textContent = `🔑 Drive 尚未授權或授權已過期${lastText}`;
+                    driveStatusEl.style.color = 'var(--warning-color)';
+                    driveAuthorizeBtn.style.display = 'block';
+                }
+            }
+
+            function ensureTokenClient() {
+                if (tokenClient) return true;
+                if (!window.google || !google.accounts || !google.accounts.oauth2) return false;
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GAPI_CLIENT_ID,
+                    scope: GAPI_SCOPES,
+                    callback: async (resp) => {
+                        const req = pendingDriveRequest;
+                        pendingDriveRequest = null;
+                        if (!req) return;
+                        if (!resp || resp.error) { req.reject({ reason: (resp && resp.error) || 'unknown' }); return; }
+                        const email = await verifyDriveAccount(resp.access_token);
+                        const expected = (currentUser && currentUser.email) ? currentUser.email.toLowerCase() : '';
+                        if (expected && email && email.toLowerCase() !== expected) {
+                            req.reject({ reason: 'account_mismatch', email });
+                            return;
+                        }
+                        saveDriveToken(resp.access_token, resp.expires_in, email);
+                        refreshDriveStatus();
+                        req.resolve(resp.access_token);
+                    },
+                    error_callback: (err) => {
+                        const req = pendingDriveRequest;
+                        pendingDriveRequest = null;
+                        if (req) req.reject({ reason: (err && err.type) || 'unknown' });
                     }
+                });
+                return true;
+            }
+
+            async function verifyDriveAccount(accessToken) {
+                try {
+                    const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)', {
+                        headers: { Authorization: `Bearer ${accessToken}` }
+                    });
+                    if (!res.ok) return '';
+                    const data = await res.json();
+                    return (data.user && data.user.emailAddress) || '';
+                } catch (_) { return ''; }
+            }
+
+            // 有有效權杖就直接沿用；沒有才向 Google 取得（interactive=false 為靜默優先）
+            // 必須在使用者點擊的同步流程中呼叫，否則瀏覽器會擋下授權視窗
+            function getDriveToken({ interactive = false } = {}) {
+                if (isDriveTokenValid()) return Promise.resolve(driveToken.access_token);
+                if (pendingDriveRequest) return Promise.reject({ reason: 'busy' });
+                if (!ensureTokenClient()) return Promise.reject({ reason: 'gis_not_ready' });
+                return new Promise((resolve, reject) => {
+                    pendingDriveRequest = { resolve, reject };
+                    const config = { prompt: interactive ? 'select_account' : '' };
+                    if (currentUser && currentUser.email) config.login_hint = currentUser.email;
+                    try {
+                        tokenClient.requestAccessToken(config);
+                    } catch (_) {
+                        pendingDriveRequest = null;
+                        reject({ reason: 'gis_not_ready' });
+                    }
+                });
+            }
+
+            function explainAuthError(err) {
+                switch (err && err.reason) {
+                    case 'popup_failed_to_open': return '瀏覽器擋下了 Google 授權視窗，請允許此網站的彈出視窗後，再點一次。';
+                    case 'popup_closed': return '已取消 Google Drive 授權。';
+                    case 'access_denied': return '未授予雲端硬碟權限，無法備份或還原。';
+                    case 'account_mismatch': return `此次授權的 Google 帳號（${err.email}）與目前登入的帳號不同，請改選正確帳號。`;
+                    case 'gis_not_ready': return '無法載入 Google 授權元件，請確認網路後重新整理頁面。';
+                    case 'busy': return 'Google 授權進行中，請稍候。';
+                    case 'token_expired': return 'Google Drive 授權已過期，請再點一次即可自動更新。';
+                    default: return null;
+                }
+            }
+
+            function handleDriveError(err) {
+                if (err && err.reason) {
+                    showToast(explainAuthError(err) || '需要授權 Google Drive，請點下方「🔑 授權 Google Drive」。', 'warn');
+                    return;
+                }
+                console.error('Google Drive 操作失敗:', err);
+                showToast('Google Drive 操作失敗（網路或雲端硬碟異常）。資料仍保留在本機與雲端即時同步中，請稍後再試。', 'error');
+            }
+
+            async function driveFetch(url, accessToken, options = {}) {
+                const res = await fetch(url, {
+                    ...options,
+                    headers: { ...(options.headers || {}), Authorization: `Bearer ${accessToken}` }
+                });
+                if (res.status === 401) {
+                    clearDriveToken();
+                    throw { reason: 'token_expired' };
+                }
+                if (!res.ok) throw new Error(`Drive API 錯誤 ${res.status}`);
+                return res;
+            }
+
+            async function findBackupFileId(accessToken) {
+                const params = new URLSearchParams({
+                    q: `name='${GDRIVE_BACKUP_FILE_NAME}' and trashed=false`,
+                    spaces: 'drive',
+                    orderBy: 'modifiedTime desc',
+                    pageSize: '1',
+                    fields: 'files(id,name,modifiedTime)'
+                });
+                const res = await driveFetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}`, accessToken);
+                const data = await res.json();
+                return (data.files && data.files.length > 0) ? data.files[0].id : null;
+            }
+
+            async function uploadBackupContent(accessToken, fileId, content) {
+                if (fileId) {
+                    // 已有備份：直接覆蓋同一個檔案（只保留最新一份）
+                    await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, accessToken, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                        body: content
+                    });
+                    return fileId;
+                }
+                // 第一次備份：建立新檔案（multipart）
+                const boundary = `hcs_${Date.now()}`;
+                const metadata = { name: GDRIVE_BACKUP_FILE_NAME, mimeType: 'application/json' };
+                const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+                             `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${content}\r\n--${boundary}--`;
+                const res = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', accessToken, {
+                    method: 'POST',
+                    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+                    body
+                });
+                const data = await res.json();
+                return data.id;
+            }
+
+            async function downloadBackup(accessToken, fileId) {
+                const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, accessToken);
+                return res.json();
+            }
+
+            async function backupToGoogleDrive() {
+                if (!currentUser) { showToast('請先登入 Google 帳號。', 'error'); return; }
+                if (!dataReady) { showToast('雲端資料尚未確認，已取消備份，以免用空資料覆蓋雲端備份。', 'error'); return; }
+                if (allHomeworks.length === 0 && !confirm('目前沒有任何作業資料，確定要把「空資料」備份到 Google Drive 覆蓋舊備份嗎？')) return;
+
+                // 同步呼叫以保留點擊手勢；有有效權杖時直接回傳，不會跳出視窗
+                const tokenPromise = getDriveToken({ interactive: false });
+                setDriveBusy(gdriveBackupBtn, true, '備份中...');
+                try {
+                    const accessToken = await tokenPromise;
+                    const fileId = await findBackupFileId(accessToken);
+                    const payload = { version: '3.0', exportedAt: new Date().toISOString(), homeworks: allHomeworks, settings: photoSettings };
+                    await uploadBackupContent(accessToken, fileId, JSON.stringify(payload, null, 2));
+                    localStorage.setItem(DRIVE_LAST_BACKUP_KEY, new Date().toLocaleString('zh-TW', { hour12: false }));
+                    showToast('已備份至 Google Drive（已覆蓋為最新版本）');
                 } catch (err) {
-                    console.error("備份失敗:", err);
-                    showToast('備份至 Google Drive 失敗！詳情請見 console。', 'error');
+                    handleDriveError(err);
                 } finally {
-                    gdriveBackupBtn.textContent = '📤 備份至雲端硬碟';
-                    gdriveBackupBtn.disabled = false;
+                    setDriveBusy(gdriveBackupBtn, false, '📤 備份至雲端硬碟');
+                    refreshDriveStatus();
                 }
             }
 
             async function restoreFromGoogleDrive() {
-                if (!dataReady) {
-                    showToast('雲端資料尚未確認，請稍候再還原。', 'error');
-                    return;
-                }
-                if (!gapi.client.getToken()) {
-                     showToast('權杖已過期或無效，請重新點擊登入按鈕以進行授權。', 'error');
-                    handleGoogleLogin();
-                    return;
-                }
-                gdriveRestoreBtn.textContent = '讀取中...';
-                gdriveRestoreBtn.disabled = true;
+                if (!currentUser) { showToast('請先登入 Google 帳號。', 'error'); return; }
+                if (!dataReady) { showToast('雲端資料尚未確認，請稍候再還原。', 'error'); return; }
 
+                const tokenPromise = getDriveToken({ interactive: false });
+                setDriveBusy(gdriveRestoreBtn, true, '讀取中...');
                 try {
-                    const listResponse = await gapi.client.drive.files.list({
-                        q: `name='${GDRIVE_BACKUP_FILE_NAME}' and trashed=false`,
-                        spaces: 'drive', fields: 'files(id, name)', pageSize: 1
-                    });
-
-                    const files = listResponse.result.files;
-                    if (!files || files.length === 0) {
-                        showToast('在您的 Google Drive 中找不到備份檔案！', 'error');
+                    const accessToken = await tokenPromise;
+                    const fileId = await findBackupFileId(accessToken);
+                    if (!fileId) {
+                        showToast('在您的 Google Drive 中找不到備份檔案（舊版備份請改用「匯入設定檔」）。', 'error');
                         return;
                     }
-                    const backupFileId = files[0].id;
-                    
-                    if (!confirm('從雲端硬碟還原將會「完全覆蓋」目前的所有即時同步資料，此操作無法復原。確定要繼續嗎？')) {
-                        return;
-                    }
+                    if (!confirm('從雲端硬碟還原將會「完全覆蓋」目前的所有即時同步資料，此操作無法復原。確定要繼續嗎？')) return;
 
-                    const response = await gapi.client.drive.files.get({ fileId: backupFileId, alt: 'media' });
-                    const importedData = response.result;
-                    
-                    if (importedData && (importedData.version === '3.0' || importedData.version === '2.0') && importedData.homeworks && importedData.settings) {
-                       allHomeworks = importedData.homeworks;
-                       photoSettings = importedData.settings;
-                       await updateDataInFirestore({ allowEmpty: true }); 
-                       showToast('資料從 Google Drive 還原並同步成功！');
-                       closeModal(cloudSyncModal);
-                    } else {
+                    const importedData = await downloadBackup(accessToken, fileId);
+                    if (!importedData || !['3.0', '2.0'].includes(importedData.version) || !Array.isArray(importedData.homeworks) || !importedData.settings) {
                         showToast('Google Drive 備份檔格式錯誤或內容為空。', 'error');
+                        return;
+                    }
+                    allHomeworks = importedData.homeworks;
+                    photoSettings = importedData.settings;
+                    ensureDefaultSettings();
+                    fixedPhotoCelebrationToggle.checked = !!photoSettings.fixed;
+                    const ok = await updateDataInFirestore({ allowEmpty: true });
+                    if (ok) {
+                        showToast('資料從 Google Drive 還原並同步成功！');
+                        closeModal(cloudSyncModal);
                     }
                 } catch (err) {
-                    console.error("還原失敗:", err);
-                    showToast('從 Google Drive 還原失敗！詳情請見 console。', 'error');
+                    handleDriveError(err);
                 } finally {
-                    gdriveRestoreBtn.textContent = '📥 從雲端硬碟還原';
-                    gdriveRestoreBtn.disabled = false;
+                    setDriveBusy(gdriveRestoreBtn, false, '📥 從雲端硬碟還原');
+                    refreshDriveStatus();
                 }
             }
-            
-            // --- Local File Import/Export ---
+
+            // 只有使用者主動按「授權」才會開啟授權視窗
+            async function authorizeDriveManually() {
+                if (!currentUser) { showToast('請先登入 Google 帳號。', 'error'); return; }
+                const tokenPromise = getDriveToken({ interactive: true });
+                setDriveBusy(driveAuthorizeBtn, true, '授權中...');
+                try {
+                    await tokenPromise;
+                    showToast('Google Drive 授權完成，之後備份會自動沿用。');
+                } catch (err) {
+                    handleDriveError(err);
+                } finally {
+                    setDriveBusy(driveAuthorizeBtn, false, '🔑 授權 Google Drive');
+                    refreshDriveStatus();
+                }
+            }
+
+                        // --- Local File Import/Export ---
             const exportData = () => {
                 if (!currentUser) { showToast('請先登入！', 'error'); return; }
                 if (!dataReady) { showToast('雲端資料尚未確認，請稍候再匯出。', 'error'); return; }
@@ -1293,12 +1419,13 @@ function listenToDataChanges() {
                 });
             });
 
-            cloudSyncBtn.addEventListener('click', () => openModal(cloudSyncModal));
+            cloudSyncBtn.addEventListener('click', () => { refreshDriveStatus(); openModal(cloudSyncModal); });
             closeCloudModalBtn.addEventListener('click', () => closeModal(cloudSyncModal));
             googleLoginBtn.addEventListener('click', handleGoogleLogin);
             googleLogoutBtn.addEventListener('click', handleLogout);
             gdriveBackupBtn.addEventListener('click', backupToGoogleDrive);
             gdriveRestoreBtn.addEventListener('click', restoreFromGoogleDrive);
+            driveAuthorizeBtn.addEventListener('click', authorizeDriveManually);
             
             localExportBtn.addEventListener('click', exportData);
             localImportBtn.addEventListener('click', () => importFileInput.click());
@@ -1309,6 +1436,9 @@ function listenToDataChanges() {
             // ================================================================
             
             const init = () => {
+                loadDriveTokenFromSession();
+                refreshDriveStatus();
+                setInterval(refreshDriveStatus, 60 * 1000);
                 auth.onAuthStateChanged(user => {
                     if (user) {
                         // 當 Firebase 狀態為登入時，更新 UI
