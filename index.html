@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雲訂正V3.2.1</title>
+    <title>雲訂正V3.3.0</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
@@ -193,7 +193,38 @@
         .time-inputs { display: none; gap: 10px; margin-top: 10px; animation: slideDown 0.3s ease; }
         .time-inputs.active { display: flex; }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
+    
+        /* ===== V3.3.0 快速項目 ===== */
+        select { border-radius: var(--control-border-radius) !important; background-color: var(--input-bg); border: 1px solid rgba(255,255,255,0.1); box-shadow: inset 0 1px 2px rgba(0,0,0,0.1); padding: 14px 18px; font-size: 1em; width: 100%; color: var(--text-color-primary); font-family: inherit; }
+        select:focus { outline: none; border-color: var(--secondary-color); box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3); }
+        option, optgroup { background: #2b2b2b; color: #fff; }
+        input:disabled { opacity: 0.45; cursor: not-allowed; }
+        #add-homework-modal-card, #preset-manager-card { max-width: 720px; max-height: 92vh; overflow-y: auto; }
+        #preset-manager-card { width: 95%; }
+        .preset-chip-area { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+        .preset-chip { padding: 10px 16px; background: rgba(255,255,255,0.12); color: var(--text-color-primary); border: 2px solid transparent; font-size: 1em; }
+        .preset-chip:hover { filter: brightness(1.15); }
+        .preset-chip.active { background: var(--warning-color); color: #1d1d1f; border-color: #fff; }
+        .preset-select-row { display: flex; gap: 10px; }
+        .preset-select-row select { flex-grow: 1; }
+        .preset-select-row button { flex-shrink: 0; padding: 14px; }
+        .preset-empty, .preview-empty { color: var(--text-color-secondary); font-size: 0.9em; }
+        .batch-preview { margin-top: 18px; padding: 12px 16px; border-radius: var(--control-border-radius); background: rgba(0,122,255,0.15); border: 1px solid rgba(0,122,255,0.4); line-height: 1.7; color: var(--text-color-primary); word-break: break-all; }
+        .batch-preview:empty { display: none; }
+        .preview-error { color: #ff8a80; font-weight: 600; }
+        .preview-warn { color: var(--warning-color); margin-top: 6px; font-size: 0.9em; }
+        .preset-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .preset-timer-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .preset-timer-row input[type="number"] { width: 90px; flex-grow: 0; }
+        .preset-timer-row span { color: var(--text-color-secondary); }
+        .preset-group-title { font-weight: 700; color: var(--warning-color); margin: 16px 0 8px; }
+        .preset-row small { color: var(--text-color-secondary); margin-left: 8px; white-space: nowrap; }
+        .preset-row.is-disabled { opacity: 0.5; }
+        .preset-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .preset-row-actions button { padding: 6px 10px; font-size: 0.8em; }
+        .preset-row-actions button:disabled { opacity: 0.3; cursor: not-allowed; }
+        @media (max-width: 700px) { .preset-form-grid { grid-template-columns: 1fr; } }
+        </style>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -210,6 +241,7 @@
                     <button id="photo-settings-btn" class="btn-secondary" disabled>👍 慶祝設定</button>
                     <button id="cloud-sync-btn" class="btn-secondary">☁️ 雲端服務與備份</button>
                     <button id="show-consolidated-btn" class="btn-warning" disabled>查看總訂正名單</button>
+                    <button id="preset-manage-btn" class="btn-secondary" disabled>📋 項目管理</button>
                     <button id="show-add-modal-btn" class="btn-primary" disabled>新增作業</button>
                 </div>
             </div>
@@ -243,11 +275,32 @@
         </div>
     </div>
     <div id="add-homework-modal" class="modal">
-        <div class="modal-card">
+        <div class="modal-card" id="add-homework-modal-card">
             <h2>新增作業</h2>
-            <div class="control-group" style="margin-bottom: 20px;"><label for="homework-title-input">作業名稱</label><input type="text" id="homework-title-input" placeholder="例如：數學習作 P.30-32"></div>
-            <div class="control-group" style="margin-bottom: 20px;"><label for="class-size-input">班級人數</label><input type="number" id="class-size-input" value="25" min="1"></div>
-            
+
+            <div class="control-group">
+                <label>① 點選常用項目（最近使用的排在前面），或用下拉選單</label>
+                <div id="preset-chip-area" class="preset-chip-area"></div>
+                <div class="preset-select-row">
+                    <select id="preset-select" aria-label="項目下拉選單"></select>
+                    <button id="preset-clear-btn" class="btn-secondary" type="button">清除</button>
+                </div>
+            </div>
+
+            <div class="control-group" style="margin-top: 20px;">
+                <label for="preset-suffix-input">② 輸入編號或備註（可輸入範圍，例如 L9-L12）</label>
+                <input type="text" id="preset-suffix-input" placeholder="例如：L9、第3課、P.30-32、L9-L12" disabled>
+            </div>
+
+            <div class="control-group" style="margin-top: 20px;">
+                <label for="homework-title-input">③ 未選項目時，直接輸入作業名稱</label>
+                <input type="text" id="homework-title-input" placeholder="例如：數學習作 P.30-32">
+            </div>
+
+            <div id="batch-preview" class="batch-preview"></div>
+
+            <div class="control-group" style="margin-top: 20px;"><label for="class-size-input">班級人數</label><input type="number" id="class-size-input" value="25" min="1"></div>
+
             <div class="control-group">
                 <div class="toggle-switch-container">
                     <input type="checkbox" id="timer-toggle-checkbox" style="width: 20px; height: 20px; margin: 0;">
@@ -260,6 +313,38 @@
             </div>
 
             <div class="modal-actions"><button id="cancel-add-btn" class="btn-secondary" style="flex: 1;">取消</button><button id="confirm-add-btn" class="btn-primary" style="flex: 1;">確認新增</button></div>
+        </div>
+    </div>
+
+    <div id="preset-manager-modal" class="modal">
+        <div class="modal-card" id="preset-manager-card">
+            <h2>📋 項目管理</h2>
+            <p style="color: var(--text-color-secondary); font-size: 0.9em; margin: -10px 0 20px;">新增、修改、排序或停用常用項目。停用的項目不會出現在新增作業的選單中，已建立的作業不受影響。</p>
+
+            <div class="preset-form-grid">
+                <div class="control-group"><label for="preset-subject-input">科目</label><input type="text" id="preset-subject-input" list="preset-subject-list" placeholder="例如：國語"><datalist id="preset-subject-list"></datalist></div>
+                <div class="control-group"><label for="preset-name-input">項目名稱</label><input type="text" id="preset-name-input" placeholder="例如：國造句"></div>
+                <div class="control-group"><label for="preset-size-input">預設班級人數</label><input type="number" id="preset-size-input" value="25" min="1"></div>
+                <div class="control-group">
+                    <label>預設倒數計時</label>
+                    <div class="preset-timer-row">
+                        <label style="margin: 0; display: flex; align-items: center; gap: 6px; color: var(--text-color-primary);"><input type="checkbox" id="preset-timer-check" style="width: 20px; height: 20px; margin: 0;"> 啟用</label>
+                        <input type="number" id="preset-timer-min" value="3" min="0"><span>分</span>
+                        <input type="number" id="preset-timer-sec" value="0" min="0" max="59"><span>秒</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button id="preset-cancel-edit-btn" class="btn-secondary" style="flex: 1;">清空表單</button>
+                <button id="preset-save-btn" class="btn-primary" style="flex: 1;">新增項目</button>
+            </div>
+
+            <div id="preset-manage-list" class="settings-list" style="max-height: 340px; margin-top: 20px;"></div>
+
+            <div class="modal-actions flex-center" style="margin-top: 20px;">
+                <button id="close-preset-manager-btn" class="btn-secondary" style="flex-grow: 1; max-width: 300px;">關閉</button>
+            </div>
         </div>
     </div>
 
@@ -426,6 +511,26 @@
             const timerMinInput = document.getElementById('timer-min-input');
             const timerSecInput = document.getElementById('timer-sec-input');
             
+            // [V3.3.0] 快速項目元件
+            const presetManageBtn = document.getElementById('preset-manage-btn');
+            const presetChipArea = document.getElementById('preset-chip-area');
+            const presetSelect = document.getElementById('preset-select');
+            const presetClearBtn = document.getElementById('preset-clear-btn');
+            const presetSuffixInput = document.getElementById('preset-suffix-input');
+            const batchPreview = document.getElementById('batch-preview');
+            const presetManagerModal = document.getElementById('preset-manager-modal');
+            const presetSubjectInput = document.getElementById('preset-subject-input');
+            const presetSubjectList = document.getElementById('preset-subject-list');
+            const presetNameInput = document.getElementById('preset-name-input');
+            const presetSizeInput = document.getElementById('preset-size-input');
+            const presetTimerCheck = document.getElementById('preset-timer-check');
+            const presetTimerMin = document.getElementById('preset-timer-min');
+            const presetTimerSec = document.getElementById('preset-timer-sec');
+            const presetSaveBtn = document.getElementById('preset-save-btn');
+            const presetCancelEditBtn = document.getElementById('preset-cancel-edit-btn');
+            const presetManageList = document.getElementById('preset-manage-list');
+            const closePresetManagerBtn = document.getElementById('close-preset-manager-btn');
+
             const clockElements = document.querySelectorAll('.digital-clock');
             const editTitleBtn = document.getElementById('edit-title-btn');
             const doneTrackingBtn = document.getElementById('done-tracking-btn');
@@ -494,6 +599,13 @@
                 { id: 'slide-left-jiggle', name: '由左滑入', enabled: true }, { id: 'slide-right-jiggle', name: '由右滑入', enabled: true },
             ];
 
+            const DEFAULT_PRESETS = [
+            { subject: '國語', name: '國造句', classSize: 25, timer: { enabled: false, duration: 0 }, enabled: true },
+            { subject: '國語', name: '查生字', classSize: 25, timer: { enabled: false, duration: 0 }, enabled: true },
+            { subject: '國語', name: '語詞練習', classSize: 25, timer: { enabled: false, duration: 0 }, enabled: true },
+            { subject: '數學', name: '數學習作', classSize: 25, timer: { enabled: false, duration: 0 }, enabled: true },
+            { subject: '英文', name: '單字默寫', classSize: 25, timer: { enabled: false, duration: 0 }, enabled: true }
+        ];
             let allHomeworks = [];
             let photoSettings = {};
             // [V3.2.1] 只有雲端伺服器確認後才設為 true；未確認前禁止任何寫入
@@ -520,6 +632,7 @@ const setSyncStatus = (text, level = 'ok') => {
                 showAddModalBtn.disabled = !ready;
                 showConsolidatedBtn.disabled = !ready;
                 photoSettingsBtn.disabled = !ready;
+                presetManageBtn.disabled = !ready;
             };
 
             const restoreFromServerState = () => {
@@ -585,6 +698,10 @@ const setSyncStatus = (text, level = 'ok') => {
                         changed = true;
                     }
                 });
+                if (!Array.isArray(photoSettings.presets)) {
+                    photoSettings.presets = DEFAULT_PRESETS.map((p, i) => ({ id: 'pr_default_' + i, ...JSON.parse(JSON.stringify(p)) }));
+                    changed = true;
+                }
                 if (typeof photoSettings.fixed !== 'boolean') {
                     photoSettings.fixed = false;
                     changed = true;
@@ -730,27 +847,305 @@ const setSyncStatus = (text, level = 'ok') => {
                 renderTrackingPage(); 
             };
             
-            const addHomework = () => {
-                const title = homeworkTitleInput.value.trim();
-                const classSize = parseInt(classSizeInput.value, 10);
-                if (!title || isNaN(classSize) || classSize < 1) { showToast('請輸入有效的作業名稱和班級人數！', 'error'); return; }
-                
-                // Timer settings
-                const hasTimer = timerToggleCheckbox.checked;
-                const timerDuration = hasTimer ? (parseInt(timerMinInput.value||0)*60 + parseInt(timerSecInput.value||0)) : 0;
+            // ================================================================
+            // [V3.3.0] 快速項目：點選／下拉選項目 + 輸入編號 + 範圍批次 + 項目管理
+            // ================================================================
+            let selectedPresetId = null;
+            let presetEditingId = null;
+            const RECENT_PRESET_KEY = 'hcs_recent_presets'; // 只存在本機瀏覽器，不影響雲端資料
 
-                const newHomework = { 
-                    id: Date.now(), 
-                    title, 
-                    date: new Date().toLocaleDateString('zh-TW'), 
-                    timerConfig: { enabled: hasTimer, duration: timerDuration },
-                    students: Array.from({ length: classSize }, (_, i) => ({ id: i + 1, needsCorrection: true, timerEnd: null })) 
-                };
-                allHomeworks.push(newHomework);
-                updateDataInFirestore();
-                closeModal(addModal);
+            const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            const newPresetId = () => 'pr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+            const getPresets = () => (Array.isArray(photoSettings.presets) ? photoSettings.presets : []);
+            const fmtDuration = (sec) => `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+
+            const getRecentPresetIds = () => {
+                try { return JSON.parse(localStorage.getItem(RECENT_PRESET_KEY) || '[]'); } catch (_) { return []; }
             };
-            
+            const markRecentPreset = (id) => {
+                const list = [id, ...getRecentPresetIds().filter(x => x !== id)].slice(0, 6);
+                try { localStorage.setItem(RECENT_PRESET_KEY, JSON.stringify(list)); } catch (_) {}
+            };
+
+            // 解析範圍：L9-L12 → [L9..L12]；01-03 → [01,02,03]；不符合格式回傳 null
+            function parseRange(text) {
+                const m = text.match(/^([A-Za-z]*)(\d+)\s*[-~－至]\s*([A-Za-z]*)(\d+)$/);
+                if (!m) return null;
+                const [, prefix, startStr, endPrefix, endStr] = m;
+                if (endPrefix && endPrefix.toLowerCase() !== prefix.toLowerCase()) return { error: '範圍的字母前綴需相同，例如 L9-L12' };
+                const start = parseInt(startStr, 10), end = parseInt(endStr, 10);
+                if (end < start) return { error: '範圍結束數字需大於開始數字' };
+                if (end - start + 1 > 50) return { error: '一次最多建立 50 份作業' };
+                const pad = (startStr.length > 1 && startStr.startsWith('0')) ? startStr.length : 0;
+                const items = [];
+                for (let i = start; i <= end; i++) items.push(prefix + (pad ? String(i).padStart(pad, '0') : String(i)));
+                return { items };
+            }
+
+            // 依目前選擇產生要建立的作業名稱
+            function resolveTitles() {
+                const preset = getPresets().find(p => p.id === selectedPresetId);
+                if (!preset) {
+                    const title = homeworkTitleInput.value.trim();
+                    return { titles: title ? [title] : [], error: null };
+                }
+                const suffix = presetSuffixInput.value.trim();
+                if (!suffix) return { titles: [preset.name], error: null };
+                const range = parseRange(suffix);
+                if (range && range.error) return { titles: [], error: range.error };
+                if (range) return { titles: range.items.map(n => `${preset.name} ${n}`), error: null };
+                return { titles: [`${preset.name} ${suffix}`], error: null };
+            }
+
+            function updatePresetPreview() {
+                const preset = getPresets().find(p => p.id === selectedPresetId);
+                presetSuffixInput.disabled = !preset;
+                homeworkTitleInput.disabled = !!preset;
+                const { titles, error } = resolveTitles();
+                if (error) { batchPreview.innerHTML = `<span class="preview-error">⚠️ ${escapeHtml(error)}</span>`; return; }
+                if (titles.length === 0) { batchPreview.innerHTML = '<span class="preview-empty">請點選上方項目（或用下拉選單），或在下方輸入作業名稱。</span>'; return; }
+                const shown = titles.slice(0, 6).map(t => escapeHtml(t)).join('、') + (titles.length > 6 ? ' …' : '');
+                let html = titles.length > 1 ? `將建立 <strong>${titles.length}</strong> 份：${shown}` : `將建立：<strong>${shown}</strong>`;
+                const dup = titles.filter(t => allHomeworks.some(hw => hw.title === t));
+                if (dup.length) html += `<div class="preview-warn">⚠️ 已有同名作業：${escapeHtml(dup.slice(0, 3).join('、'))}（仍可新增）</div>`;
+                batchPreview.innerHTML = html;
+            }
+
+            function renderPresetPickers() {
+                const enabled = getPresets().filter(p => p.enabled);
+                const recent = getRecentPresetIds();
+                const rank = (id) => (recent.indexOf(id) === -1 ? 999 : recent.indexOf(id));
+                const sorted = [...enabled].sort((a, b) => rank(a.id) - rank(b.id));
+                presetChipArea.innerHTML = sorted.length
+                    ? sorted.map(p => `<button type="button" class="preset-chip${p.id === selectedPresetId ? ' active' : ''}" data-id="${p.id}">${escapeHtml(p.name)}</button>`).join('')
+                    : '<span class="preset-empty">尚無啟用的項目，請先到「📋 項目管理」新增。</span>';
+
+                const groups = new Map();
+                enabled.forEach(p => { const key = p.subject || '未分類'; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(p); });
+                let opts = '<option value="">— 不使用項目（自行輸入）—</option>';
+                groups.forEach((items, subject) => {
+                    opts += `<optgroup label="${escapeHtml(subject)}">` +
+                        items.map(p => `<option value="${p.id}"${p.id === selectedPresetId ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('') +
+                        '</optgroup>';
+                });
+                presetSelect.innerHTML = opts;
+                updatePresetPreview();
+            }
+
+            // 選定項目時，自動帶入班級人數與倒數設定（仍可手動修改）
+            function applyPreset(id) {
+                const preset = getPresets().find(p => p.id === id);
+                selectedPresetId = preset ? preset.id : null;
+                if (preset) {
+                    const sec = (preset.timer && preset.timer.duration) || 0;
+                    const on = !!(preset.timer && preset.timer.enabled);
+                    classSizeInput.value = preset.classSize || 25;
+                    timerToggleCheckbox.checked = on;
+                    timerMinInput.value = Math.floor(sec / 60);
+                    timerSecInput.value = sec % 60;
+                    timerSettingsArea.classList.toggle('active', on);
+                }
+                renderPresetPickers();
+            }
+
+            function openAddModal() {
+                selectedPresetId = null;
+                presetSuffixInput.value = '';
+                homeworkTitleInput.value = '';
+                classSizeInput.value = 25;
+                timerToggleCheckbox.checked = false;
+                timerSettingsArea.classList.remove('active');
+                renderPresetPickers();
+                openModal(addModal);
+            }
+
+            async function addHomework() {
+                if (addHomework.busy) return;
+                const { titles, error } = resolveTitles();
+                if (error) { showToast(error, 'error'); return; }
+                if (titles.length === 0) { showToast('請點選項目，或輸入作業名稱！', 'error'); return; }
+                const classSize = parseInt(classSizeInput.value, 10);
+                if (isNaN(classSize) || classSize < 1) { showToast('請輸入有效的班級人數！', 'error'); return; }
+                const hasTimer = timerToggleCheckbox.checked;
+                const timerDuration = hasTimer ? ((parseInt(timerMinInput.value, 10) || 0) * 60 + (parseInt(timerSecInput.value, 10) || 0)) : 0;
+                if (hasTimer && timerDuration <= 0) { showToast('倒數時間需大於 0 秒！', 'error'); return; }
+                const dup = titles.filter(t => allHomeworks.some(hw => hw.title === t));
+                if (dup.length && !confirm(`已有同名作業：${dup.slice(0, 3).join('、')}\n仍要新增嗎？`)) return;
+
+                addHomework.busy = true;
+                const baseId = Date.now();
+                const newIds = titles.map((_, i) => baseId + i);
+                const date = new Date().toLocaleDateString('zh-TW');
+                titles.forEach((title, i) => {
+                    allHomeworks.push({
+                        id: newIds[i], title, date,
+                        timerConfig: { enabled: hasTimer, duration: timerDuration },
+                        students: Array.from({ length: classSize }, (_, n) => ({ id: n + 1, needsCorrection: true, timerEnd: null }))
+                    });
+                });
+                const ok = await updateDataInFirestore();
+                addHomework.busy = false;
+                if (!ok) {
+                    // 寫入失敗：移除剛加入的本機資料，避免重試時重複
+                    allHomeworks = allHomeworks.filter(hw => !newIds.includes(hw.id));
+                    return;
+                }
+                if (selectedPresetId) markRecentPreset(selectedPresetId);
+                closeModal(addModal);
+                showToast(`已新增 ${titles.length} 份作業`);
+            }
+            addHomework.busy = false;
+
+            // ---------- 項目管理 ----------
+            function resetPresetForm() {
+                presetEditingId = null;
+                presetSubjectInput.value = '';
+                presetNameInput.value = '';
+                presetSizeInput.value = 25;
+                presetTimerCheck.checked = false;
+                presetTimerMin.value = 3;
+                presetTimerSec.value = 0;
+                presetSaveBtn.textContent = '新增項目';
+                presetCancelEditBtn.textContent = '清空表單';
+            }
+
+            function renderPresetManageList() {
+                const list = getPresets();
+                presetSubjectList.innerHTML = [...new Set(list.map(p => p.subject || '未分類'))]
+                    .map(s => `<option value="${escapeHtml(s)}"></option>`).join('');
+                if (list.length === 0) {
+                    presetManageList.innerHTML = '<p style="text-align: center; color: var(--text-color-secondary);">尚未建立任何項目，請在上方新增。</p>';
+                    return;
+                }
+                const groups = new Map();
+                list.forEach(p => { const key = p.subject || '未分類'; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(p); });
+                let html = '';
+                groups.forEach((items, subject) => {
+                    html += `<div class="preset-group-title">${escapeHtml(subject)}</div>`;
+                    items.forEach((p, idx) => {
+                        const timerText = (p.timer && p.timer.enabled) ? `倒數 ${fmtDuration(p.timer.duration)}` : '無倒數';
+                        html += `
+                <div class="settings-list-item preset-row${p.enabled ? '' : ' is-disabled'}">
+                    <div class="content">
+                        <input type="checkbox" data-action="toggle" data-id="${p.id}" ${p.enabled ? 'checked' : ''} title="勾選＝啟用（會出現在新增作業的選單）">
+                        <span title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
+                        <small>預設 ${p.classSize || 25} 人・${timerText}</small>
+                    </div>
+                    <div class="preset-row-actions">
+                        <button class="btn-secondary" data-action="up" data-id="${p.id}" ${idx === 0 ? 'disabled' : ''}>↑</button>
+                        <button class="btn-secondary" data-action="down" data-id="${p.id}" ${idx === items.length - 1 ? 'disabled' : ''}>↓</button>
+                        <button class="btn-secondary" data-action="edit" data-id="${p.id}">編輯</button>
+                        <button class="btn-danger" data-action="delete" data-id="${p.id}">刪除</button>
+                    </div>
+                </div>`;
+                    });
+                });
+                presetManageList.innerHTML = html;
+            }
+
+            function openPresetManager() {
+                resetPresetForm();
+                renderPresetManageList();
+                openModal(presetManagerModal);
+            }
+
+            function startEditPreset(id) {
+                const p = getPresets().find(x => x.id === id);
+                if (!p) return;
+                presetEditingId = id;
+                presetSubjectInput.value = p.subject || '';
+                presetNameInput.value = p.name;
+                presetSizeInput.value = p.classSize || 25;
+                const sec = (p.timer && p.timer.duration) || 0;
+                presetTimerCheck.checked = !!(p.timer && p.timer.enabled);
+                presetTimerMin.value = Math.floor(sec / 60);
+                presetTimerSec.value = sec % 60;
+                presetSaveBtn.textContent = '儲存修改';
+                presetCancelEditBtn.textContent = '取消編輯';
+                presetNameInput.focus();
+            }
+
+            async function savePresetFromForm() {
+                const isEdit = !!presetEditingId;
+                const subject = presetSubjectInput.value.trim() || '未分類';
+                const name = presetNameInput.value.trim();
+                const classSize = parseInt(presetSizeInput.value, 10);
+                const timerOn = presetTimerCheck.checked;
+                const duration = timerOn ? ((parseInt(presetTimerMin.value, 10) || 0) * 60 + (parseInt(presetTimerSec.value, 10) || 0)) : 0;
+                if (!name) { showToast('請輸入項目名稱！', 'error'); return; }
+                if (name.length > 30) { showToast('項目名稱請控制在 30 字以內！', 'error'); return; }
+                if (isNaN(classSize) || classSize < 1) { showToast('預設班級人數至少為 1！', 'error'); return; }
+                if (timerOn && duration <= 0) { showToast('倒數時間需大於 0 秒！', 'error'); return; }
+
+                const list = getPresets();
+                if (list.some(p => p.id !== presetEditingId && (p.subject || '未分類') === subject && p.name === name)) {
+                    showToast('同一科目已有相同名稱的項目！', 'error');
+                    return;
+                }
+                const timer = { enabled: timerOn, duration };
+                if (isEdit) {
+                    const target = list.find(p => p.id === presetEditingId);
+                    if (target) Object.assign(target, { subject, name, classSize, timer });
+                } else {
+                    list.push({ id: newPresetId(), subject, name, classSize, timer, enabled: true });
+                }
+                photoSettings.presets = list;
+                const ok = await updateDataInFirestore();
+                if (!ok) return;
+                resetPresetForm();
+                renderPresetManageList();
+                renderPresetPickers();
+                showToast(isEdit ? '已儲存修改' : '已新增項目');
+            }
+
+            async function saveAndRefreshPresets() {
+                await updateDataInFirestore();
+                renderPresetManageList();
+                renderPresetPickers();
+            }
+
+            async function deletePreset(id) {
+                const p = getPresets().find(x => x.id === id);
+                if (!p || !confirm(`確定刪除「${p.name}」？已建立的作業不會受影響。`)) return;
+                photoSettings.presets = getPresets().filter(x => x.id !== id);
+                if (presetEditingId === id) resetPresetForm();
+                await saveAndRefreshPresets();
+            }
+
+            // 只在同一科目內調整順序
+            async function movePreset(id, dir) {
+                const list = getPresets();
+                const idx = list.findIndex(p => p.id === id);
+                if (idx < 0) return;
+                const subject = list[idx].subject || '未分類';
+                const sameSubjectIdx = list.map((p, i) => ({ p, i })).filter(x => (x.p.subject || '未分類') === subject).map(x => x.i);
+                const pos = sameSubjectIdx.indexOf(idx);
+                const targetPos = pos + dir;
+                if (targetPos < 0 || targetPos >= sameSubjectIdx.length) return;
+                const other = sameSubjectIdx[targetPos];
+                [list[idx], list[other]] = [list[other], list[idx]];
+                await saveAndRefreshPresets();
+            }
+
+            function handlePresetListClick(e) {
+                const btn = e.target.closest('button[data-action]');
+                if (!btn) return;
+                const { action, id } = btn.dataset;
+                if (action === 'edit') startEditPreset(id);
+                else if (action === 'delete') deletePreset(id);
+                else if (action === 'up') movePreset(id, -1);
+                else if (action === 'down') movePreset(id, 1);
+            }
+
+            function handlePresetListChange(e) {
+                const box = e.target.closest('input[data-action="toggle"]');
+                if (!box) return;
+                const preset = getPresets().find(p => p.id === box.dataset.id);
+                if (!preset) return;
+                preset.enabled = box.checked;
+                saveAndRefreshPresets();
+            }
+
             const deleteHomework = () => {
                  if (confirm('確定要永久刪除此項作業嗎？此操作無法復原。')) {
                     allHomeworks = allHomeworks.filter(hw => hw.id !== currentHomeworkId);
@@ -1179,10 +1574,26 @@ function listenToDataChanges() {
             // EVENT LISTENERS
             // ================================================================
 
-            showAddModalBtn.addEventListener('click', () => openModal(addModal));
+            showAddModalBtn.addEventListener('click', openAddModal);
             cancelAddBtn.addEventListener('click', () => closeModal(addModal));
             showConsolidatedBtn.addEventListener('click', renderConsolidatedPage);
             confirmAddBtn.addEventListener('click', addHomework);
+            // [V3.3.0] 快速項目事件
+            presetChipArea.addEventListener('click', (e) => {
+                const chip = e.target.closest('.preset-chip');
+                if (chip) applyPreset(chip.dataset.id);
+            });
+            presetSelect.addEventListener('change', () => applyPreset(presetSelect.value || null));
+            presetClearBtn.addEventListener('click', () => { presetSuffixInput.value = ''; applyPreset(null); });
+            presetSuffixInput.addEventListener('input', updatePresetPreview);
+            homeworkTitleInput.addEventListener('input', updatePresetPreview);
+            presetManageBtn.addEventListener('click', openPresetManager);
+            closePresetManagerBtn.addEventListener('click', () => closeModal(presetManagerModal));
+            presetSaveBtn.addEventListener('click', savePresetFromForm);
+            presetCancelEditBtn.addEventListener('click', resetPresetForm);
+            presetManageList.addEventListener('click', handlePresetListClick);
+            presetManageList.addEventListener('change', handlePresetListChange);
+            
             dashboardGrid.addEventListener('click', (e) => { const card = e.target.closest('.homework-card'); if (card) { currentHomeworkId = parseInt(card.dataset.id, 10); renderTrackingPage(); switchScreen('tracking'); } });
             consolidatedListContainer.addEventListener('click', (e) => {
                 // 1. 檢查是否點擊了倒數計時觸發器 (Timer Trigger)
