@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雲訂正V3.3.1</title>
+    <title>雲訂正V3.4.0</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
@@ -224,12 +224,40 @@
         .preset-row-actions button { padding: 6px 10px; font-size: 0.8em; }
         .preset-row-actions button:disabled { opacity: 0.3; cursor: not-allowed; }
         @media (max-width: 700px) { .preset-form-grid { grid-template-columns: 1fr; } }
-        </style>
+        
+        /* ===== V3.4.0 三態狀態 / 進度 / 批次 / 復原 ===== */
+        .correction-tag.st-pending { background-color: var(--warning-color); color: #1d1d1f; }
+        .correction-tag.st-corrected { background-color: #8FD8FF; color: #06314D; }
+        .correction-tag.st-completed { background-color: var(--primary-color); color: #fff; }
+        .undo-tag { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.3); color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; z-index: 5; }
+        .student-item.st-corrected { border-color: #8FD8FF; color: #8FD8FF; }
+        .number-ball.corrected { background-color: #8FD8FF; color: #06314D; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .hw-progress { height: 10px; background: rgba(255,255,255,0.15); border-radius: 50px; overflow: hidden; margin: 4px 0 6px; }
+        .hw-progress-bar { height: 100%; background: var(--primary-color); transition: width 0.4s ease; }
+        .hw-progress-text { color: var(--text-color-secondary); font-size: 0.95em; margin-bottom: 10px; }
+        .hw-progress-text strong { color: #fff; }
+        .hw-stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 12px; }
+        .hw-stats-line { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.9em; color: var(--text-color-secondary); margin: -10px 0 16px; }
+        .stat-pill { display: inline-block; padding: 4px 12px; border-radius: 50px; font-size: 0.9em; font-weight: 600; }
+        .st-pending-pill { background: var(--warning-color); color: #1d1d1f; }
+        .st-corrected-pill { background: #8FD8FF; color: #06314D; }
+        .st-completed-pill { background: var(--primary-color); color: #fff; }
+        .all-done-text { color: var(--primary-color); font-weight: 700; font-size: 1.2em; }
+        .homework-card-title { font-size: 1.8em; }
+        .tracking-stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .batch-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+        .batch-actions button { flex: 1; min-width: 150px; padding: 12px 14px; }
+        .tracking-legend { font-size: 0.85em; color: var(--text-color-secondary); line-height: 1.7; margin-bottom: 18px; }
+        #undo-bar { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 150%); transition: transform 0.35s ease; background: rgba(30,30,30,0.94); color: #fff; padding: 12px 14px 12px 20px; border-radius: 14px; display: flex; align-items: center; gap: 16px; z-index: 10001; box-shadow: 0 8px 24px rgba(0,0,0,0.35); max-width: 92vw; }
+        #undo-bar.visible { transform: translate(-50%, 0); }
+        #undo-bar button { padding: 10px 16px; white-space: nowrap; }
+    </style>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
     
     <div id="celebration-container"></div>
+    <div id="undo-bar"><span id="undo-text"></span><button id="undo-btn" class="btn-warning">↩ 復原</button></div>
     <input type="file" id="import-file-input" accept=".json" style="display: none;">
 
     <div id="dashboard-screen" class="app-screen">
@@ -256,9 +284,17 @@
                     <button id="edit-title-btn" class="btn-secondary">編輯名稱</button> <button id="back-to-dashboard-btn" class="btn-secondary">返回總覽</button>
                 </div>
             </div>
-            <div id="student-checklist-card" class="card"><div id="student-checklist"></div></div>
+            <div id="student-checklist-card" class="card">
+                <div id="tracking-stats" class="tracking-stats"></div>
+                <div class="batch-actions">
+                    <button id="batch-completed-btn" class="btn-success">✅ 全部已完成</button>
+                    <button id="batch-corrected-btn" class="btn-primary">🔵 全部已訂正</button>
+                    <button id="batch-pending-btn" class="btn-warning">🟡 全部未訂正</button>
+                </div>
+                <div class="tracking-legend">點一下號碼：🟡 未訂正 → 🔵 已訂正 → ✅ 已完成。<br>已完成的號碼再點一下，會直接改回未訂正。快速修正方法：先按「全部已完成」，再點少數沒完成的號碼即可（按錯可用「↩ 復原」）。</div>
+                <div id="student-checklist"></div>
+            </div>
             <div class="footer-actions">
-                <button id="select-all-btn" class="btn-secondary">全選</button>
                 <button id="done-tracking-btn" class="btn-success">完成</button> <button id="delete-homework-btn" class="btn-danger">刪除此作業</button>
             </div>
         </div>
@@ -268,7 +304,7 @@
             <div class="header">
                 <div class="header-left"><h1>總訂正名單</h1></div>
                 <div class="header-center"><div class="digital-clock"></div></div>
-                <div class="header-right"><button id="back-to-dashboard-from-consolidated-btn" class="btn-secondary">返回總覽</button></div>
+                <div class="header-right"><button id="toggle-completed-view-btn" class="btn-secondary">顯示已完成</button> <button id="back-to-dashboard-from-consolidated-btn" class="btn-secondary">返回總覽</button></div>
             </div>
             <div id="consolidated-list-container"></div>
         </div>
@@ -501,7 +537,6 @@
             const trackingTitle = document.getElementById('tracking-title');
             const studentChecklist = document.getElementById('student-checklist');
             const deleteHomeworkBtn = document.getElementById('delete-homework-btn');
-            const selectAllBtn = document.getElementById('select-all-btn');
             const backToDashboardBtn = document.getElementById('back-to-dashboard-btn');
             const consolidatedListContainer = document.getElementById('consolidated-list-container');
             const backToDashboardFromConsolidatedBtn = document.getElementById('back-to-dashboard-from-consolidated-btn');
@@ -670,6 +705,7 @@ const setSyncStatus = (text, level = 'ok') => {
                     restoreFromServerState();
                     return false;
                 }
+                normalizeAllHomeworks();
                 const dataToSave = { homeworks: allHomeworks, settings: photoSettings };
                 try {
                     await db.collection('users').doc(currentUser.uid).set(dataToSave, { merge: true });
@@ -716,6 +752,7 @@ const setSyncStatus = (text, level = 'ok') => {
 
             const loadDocIntoState = (data) => {
                 allHomeworks = Array.isArray(data.homeworks) ? data.homeworks : [];
+                normalizeAllHomeworks();
                 photoSettings = (data.settings && typeof data.settings === 'object') ? data.settings : {};
                 const changed = ensureDefaultSettings();
                 fixedPhotoCelebrationToggle.checked = !!photoSettings.fixed;
@@ -742,6 +779,53 @@ const setSyncStatus = (text, level = 'ok') => {
             // RENDERING FUNCTIONS
             // ================================================================
             
+// [V3.4.0-STATUS-BEGIN] 狀態工具（純函式，不依賴 DOM，可獨立測試）
+            const getStatus = (s) => {
+                if (s && (s.status === 'pending' || s.status === 'corrected' || s.status === 'completed')) return s.status;
+                return (s && s.needsCorrection === false) ? 'completed' : 'pending';
+            };
+            const countStatuses = (hw) => (hw.students || []).reduce((acc, s) => { acc[getStatus(s)] += 1; return acc; }, { pending: 0, corrected: 0, completed: 0 });
+            const isHomeworkDone = (hw) => (hw.students || []).length > 0 && hw.students.every(s => getStatus(s) === 'completed');
+            const applyStatus = (s, status) => { s.status = status; s.needsCorrection = status !== 'completed'; s.timerEnd = null; };
+            const normalizeHomeworks = (list) => {
+                (list || []).forEach(hw => {
+                    if (!Array.isArray(hw.students)) hw.students = [];
+                    hw.students.forEach(s => {
+                        const st = getStatus(s);
+                        s.status = st;
+                        s.needsCorrection = st !== 'completed';
+                        if (st !== 'pending') s.timerEnd = null;
+                    });
+                });
+                return list;
+            };
+            const snapshotStatuses = (changes) => changes.map(c => ({ hwId: c.hw.id, studId: c.student.id, status: getStatus(c.student), timerEnd: c.student.timerEnd || null }));
+            const revertStatuses = (list, prevList) => {
+                prevList.forEach(p => {
+                    const hw = (list || []).find(h => h.id === p.hwId);
+                    const st = hw && (hw.students || []).find(s => s.id === p.studId);
+                    if (st) { applyStatus(st, p.status); st.timerEnd = p.timerEnd; }
+                });
+            };
+            // [V3.4.0-STATUS-END]
+
+            const normalizeAllHomeworks = () => normalizeHomeworks(allHomeworks);
+            const trackingStats = document.getElementById('tracking-stats');
+            const batchCompletedBtn = document.getElementById('batch-completed-btn');
+            const batchCorrectedBtn = document.getElementById('batch-corrected-btn');
+            const batchPendingBtn = document.getElementById('batch-pending-btn');
+            const toggleCompletedViewBtn = document.getElementById('toggle-completed-view-btn');
+            const undoBar = document.getElementById('undo-bar');
+            const undoText = document.getElementById('undo-text');
+            const undoBtn = document.getElementById('undo-btn');
+            let showCompletedInConsolidated = false; // 只影響本次畫面，不寫入雲端
+            const flashKeys = new Set();             // 剛完成的號碼短暫顯示綠色後再消失
+            let undoPayload = null;
+            let undoTimer = null;
+            const findHomework = (id) => allHomeworks.find(hw => hw.id === id);
+            const getCurrentHomework = () => findHomework(currentHomeworkId);
+
+            // ---------- 渲染 ----------
             const renderDashboard = () => {
                 if (!currentUser) {
                     dashboardGrid.innerHTML = `<p style="color: var(--text-color-secondary); grid-column: 1 / -1; text-align: center; font-size: 1.2em;">請點擊右上角「☁️ 雲端服務與備份」登入以載入資料。</p>`;
@@ -757,102 +841,150 @@ const setSyncStatus = (text, level = 'ok') => {
                     return;
                 }
                 allHomeworks.forEach(hw => {
+                    const students = hw.students || [];
+                    const total = students.length || 1;
+                    const c = countStatuses(hw);
+                    const pct = Math.round((c.completed / total) * 100);
+                    const unfinished = students.filter(s => getStatus(s) !== 'completed');
+                    const size = unfinished.length > 12 ? 32 : 40;
+                    const balls = unfinished.map(s => `<div class="number-ball${getStatus(s) === 'corrected' ? ' corrected' : ''}" style="width:${size}px;height:${size}px;font-size:${size > 32 ? '1em' : '0.9em'};">${s.id}</div>`).join('');
                     const card = document.createElement('div');
                     card.className = 'homework-card';
                     card.dataset.id = hw.id;
-                    const studentsToCorrect = hw.students.filter(s => s.needsCorrection);
-                    const uncompletedCount = studentsToCorrect.length;
-                    
-                    if (uncompletedCount > 0 && uncompletedCount < 6) {
-                        const isRed = uncompletedCount < 4;
-                        const fontSize = 1.2 + (5 - uncompletedCount) * 0.2;
-                        card.innerHTML = `<div class="homework-card-title">${hw.title}</div><div class="number-ball-container">${studentsToCorrect.map(s => `<div class="number-ball ${isRed ? 'red' : ''}" style="font-size: ${fontSize.toFixed(1)}em;">${s.id}</div>`).join('')}</div><div class="homework-card-footer"><span>${hw.date}</span></div>`;
-                    } else {
-                        card.innerHTML = `<div class="homework-card-title">${hw.title}</div><div class="homework-card-footer"><span>${hw.date}</span><span class="status-badge ${uncompletedCount === 0 ? 'all-done' : ''}">${uncompletedCount === 0 ? '🎉 全班完成' : `${uncompletedCount} 人未訂正`}</span></div>`;
-                    }
+                    card.innerHTML = `
+                        <div class="homework-card-title">${escapeHtml(hw.title)}</div>
+                        <div class="hw-progress"><div class="hw-progress-bar" style="width:${pct}%"></div></div>
+                        <div class="hw-progress-text">已完成 <strong>${c.completed}</strong> / ${total}（${pct}%）</div>
+                        <div class="hw-stats">
+                            <span class="stat-pill st-pending-pill">🟡 未訂正 ${c.pending}</span>
+                            <span class="stat-pill st-corrected-pill">🔵 已訂正 ${c.corrected}</span>
+                        </div>
+                        ${unfinished.length > 0
+                            ? `<div class="number-ball-container">${balls}</div>`
+                            : `<div class="number-ball-container"><span class="all-done-text">🎉 全班完成</span></div>`}
+                        <div class="homework-card-footer"><span>${escapeHtml(hw.date)}</span></div>`;
                     dashboardGrid.appendChild(card);
                 });
             };
-            
+
             const renderTrackingPage = () => {
-                const homework = allHomeworks.find(hw => hw.id === currentHomeworkId);
+                const homework = getCurrentHomework();
                 if (!homework) return;
                 trackingTitle.textContent = homework.title;
+                const c = countStatuses(homework);
+                trackingStats.innerHTML = `<span class="stat-pill st-pending-pill">🟡 未訂正 ${c.pending}</span><span class="stat-pill st-corrected-pill">🔵 已訂正 ${c.corrected}</span><span class="stat-pill st-completed-pill">✅ 已完成 ${c.completed}</span>`;
                 studentChecklist.innerHTML = '';
-                homework.students.forEach(student => {
+                (homework.students || []).forEach(student => {
+                    const st = getStatus(student);
                     const item = document.createElement('div');
-                    item.className = 'student-item';
+                    item.className = 'student-item' + (st === 'completed' ? ' completed' : (st === 'corrected' ? ' st-corrected' : ''));
                     item.textContent = `${student.id}號`;
                     item.dataset.id = student.id;
-                    if (!student.needsCorrection) item.classList.add('completed');
                     studentChecklist.appendChild(item);
                 });
-                const allAreComplete = homework.students.every(s => !s.needsCorrection);
-                selectAllBtn.textContent = allAreComplete ? '取消全選' : '全選';
             };
 
             const renderConsolidatedPage = () => {
-                consolidatedListContainer.innerHTML = '';
-                const homeworksToCorrect = allHomeworks.filter(hw => hw.students.some(s => s.needsCorrection));
-                if (homeworksToCorrect.length === 0) {
-                    consolidatedListContainer.innerHTML = `<div class="card" style="text-align: center; font-size: 1.5em; color: var(--text-color-primary); grid-column: 1 / -1;">🎉 太棒了！目前所有作業都已完成訂正！</div>`;
-                } else {
-                    homeworksToCorrect.forEach(hw => {
-                        const card = document.createElement('div');
-                        card.className = 'correction-homework-card';
-                        
-                        // 使用壓縮的 innerHTML 避免空白節點
-                        let tagsHtml = '';
-                        hw.students.filter(s => s.needsCorrection).forEach(student => {
-                            const isTimerEnabled = hw.timerConfig && hw.timerConfig.enabled;
-                            const timerEndAttr = student.timerEnd ? ` data-timer-end="${student.timerEnd}"` : '';
-                            const timerClass = (student.timerEnd && student.timerEnd < Date.now()) ? ' timer-finished-bg' : '';
-                            
-                            // 產生按鈕內容 (數字 + 選擇性圖示 + 選擇性倒數顯示)
-                            let innerContent = `<span style="font-size:1.2em;">${student.id}</span>`;
-                            if (isTimerEnabled) {
-                                innerContent += `<span class="timer-trigger" title="開始倒數">⏱️</span><div class="timer-display-text">${student.timerEnd ? '計算中...' : ''}</div>`;
-                            }
-                            
-                            tagsHtml += `<button class="correction-tag${timerClass}" data-student-id="${student.id}" data-homework-id="${hw.id}"${timerEndAttr}>${innerContent}</button>`;
-                        });
-
-                        card.innerHTML = `<h3 class="correction-homework-title" data-homework-id="${hw.id}">${hw.title}</h3><div class="student-tags-grid">${tagsHtml}</div>`;
-                        consolidatedListContainer.appendChild(card);
-                    });
-                }
+                let cardsHtml = '';
+                allHomeworks.forEach(hw => {
+                    const students = hw.students || [];
+                    // 待辦視角：已完成隱藏（剛完成的會短暫顯示綠色）；開啟「顯示已完成」才全部顯示
+                    const visible = students.filter(s => getStatus(s) !== 'completed' || showCompletedInConsolidated || flashKeys.has(`${hw.id}-${s.id}`));
+                    if (visible.length === 0) return;
+                    const c = countStatuses(hw);
+                    const timerOn = !!(hw.timerConfig && hw.timerConfig.enabled);
+                    const tags = visible.map(s => {
+                        const st = getStatus(s);
+                        let inner = `<span style="font-size:1.2em;">${s.id}</span>`;
+                        let attrs = '';
+                        let extra = '';
+                        if (st === 'pending' && timerOn) {
+                            if (s.timerEnd) attrs = ` data-timer-end="${s.timerEnd}"`;
+                            inner += `<span class="timer-trigger" title="開始倒數">⏱️</span><div class="timer-display-text">${s.timerEnd ? '計算中...' : ''}</div>`;
+                            if (s.timerEnd && s.timerEnd < Date.now()) extra = ' timer-finished-bg';
+                        }
+                        if (st === 'completed' && showCompletedInConsolidated) inner += `<span class="undo-tag" title="改回未訂正">↩</span>`;
+                        return `<button class="correction-tag st-${st}${extra}" data-student-id="${s.id}" data-homework-id="${hw.id}"${attrs}>${inner}</button>`;
+                    }).join('');
+                    cardsHtml += `<div class="correction-homework-card">
+                        <h3 class="correction-homework-title" data-homework-id="${hw.id}">${escapeHtml(hw.title)}</h3>
+                        <div class="hw-stats-line"><span>🟡 未訂正 ${c.pending}</span><span>🔵 已訂正 ${c.corrected}</span><span>✅ 已完成 ${c.completed}</span></div>
+                        <div class="student-tags-grid">${tags}</div>
+                    </div>`;
+                });
+                consolidatedListContainer.innerHTML = cardsHtml || `<div class="card" style="text-align: center; font-size: 1.5em; color: var(--text-color-primary); grid-column: 1 / -1;">🎉 太棒了！目前所有作業都已完成訂正！</div>`;
+                toggleCompletedViewBtn.textContent = showCompletedInConsolidated ? '隱藏已完成' : '顯示已完成';
                 switchScreen('consolidated');
             };
-            
-            // --- CORE LOGIC ---
-            const checkForCompletion = (homework) => homework.students.every(s => !s.needsCorrection);
-            
-            const toggleStudentStatus = (e) => {
-                if (!e.target.classList.contains('student-item')) return;
-                const studentId = parseInt(e.target.dataset.id, 10);
-                const homework = allHomeworks.find(hw => hw.id === currentHomeworkId);
-                const wasInProgress = homework.students.some(s => s.needsCorrection);
-                const student = homework.students.find(s => s.id === studentId);
-                if (student) {
-                    student.needsCorrection = !student.needsCorrection;
-                    if (wasInProgress && checkForCompletion(homework)) triggerRandomCelebration();
-                    updateDataInFirestore();
-                    renderTrackingPage();
-                }
-            };
 
-            const toggleSelectAll = () => {
-                const homework = allHomeworks.find(hw => hw.id === currentHomeworkId);
-                if (!homework) return;
-                const wasInProgress = homework.students.some(s => s.needsCorrection);
-                const allAreComplete = homework.students.every(s => !s.needsCorrection);
-                homework.students.forEach(student => { student.needsCorrection = allAreComplete; });
-                if (wasInProgress && checkForCompletion(homework)) triggerRandomCelebration();
+            // --- CORE LOGIC（V3.4.0：三態、批次、復原） ---
+            function showUndoBar(text, prevList) {
+                undoPayload = prevList;
+                undoText.textContent = `${text}（6 秒內可按復原）`;
+                undoBar.classList.add('visible');
+                clearTimeout(undoTimer);
+                undoTimer = setTimeout(hideUndoBar, 6000);
+            }
+            function hideUndoBar() {
+                undoBar.classList.remove('visible');
+                undoPayload = null;
+                clearTimeout(undoTimer);
+            }
+            async function performUndo() {
+                if (!undoPayload) return;
+                const prev = undoPayload;
+                hideUndoBar();
+                revertStatuses(allHomeworks, prev);
+                renderActiveScreen();
+                await updateDataInFirestore();
+                renderActiveScreen();
+            }
+
+            // 唯一的狀態變更入口：先更新畫面，再寫入雲端；寫入失敗則還原
+            async function changeStatuses(changes, opts = {}) {
+                const real = changes.filter(c => getStatus(c.student) !== c.status);
+                if (real.length === 0) return true;
+                const prevList = snapshotStatuses(real);
+                const touched = [...new Set(real.map(c => c.hw))];
+                const wasDone = new Map(touched.map(hw => [hw.id, isHomeworkDone(hw)]));
+                real.forEach(c => applyStatus(c.student, c.status));
+                renderActiveScreen();
+                const ok = await updateDataInFirestore();
+                if (!ok) {
+                    revertStatuses(allHomeworks, prevList);
+                    renderActiveScreen();
+                    return false;
+                }
+                const newlyDone = touched.some(hw => !wasDone.get(hw.id) && isHomeworkDone(hw));
+                if (newlyDone) triggerRandomCelebration();
+                if (opts.undo) showUndoBar(opts.label || '已套用變更', prevList);
+                return true;
+            }
+
+            // 總訂正名單：訂正中 → 已完成，綠色短暫顯示後消失
+            function completeWithFlash(hw, student) {
+                const key = `${hw.id}-${student.id}`;
+                flashKeys.add(key);
+                changeStatuses([{ hw, student, status: 'completed' }]);
+                setTimeout(() => { flashKeys.delete(key); renderActiveScreen(); }, 1000);
+            }
+
+            // 只有「未訂正」的學生可以開始倒數；開始後由點擊變更狀態時自動停止
+            function startStudentTimer(hw, student) {
+                if (!(hw.timerConfig && hw.timerConfig.enabled) || getStatus(student) !== 'pending') return;
+                student.timerEnd = Date.now() + ((hw.timerConfig.duration || 300) * 1000);
                 updateDataInFirestore();
-                renderTrackingPage(); 
-            };
-            
-            // ================================================================
+                renderActiveScreen();
+            }
+
+            // 追蹤頁批次按鈕：套用到目前作業全部學生，可復原
+            function batchSetStatus(status, label) {
+                const hw = getCurrentHomework();
+                if (!hw) return;
+                changeStatuses((hw.students || []).map(student => ({ hw, student, status })), { undo: true, label });
+            }
+
+                        // ================================================================
             // [V3.3.0] 快速項目：點選／下拉選項目 + 輸入編號 + 範圍批次 + 項目管理
             // ================================================================
             let selectedPresetId = null;
@@ -985,7 +1117,7 @@ const setSyncStatus = (text, level = 'ok') => {
                     allHomeworks.push({
                         id: newIds[i], title, date,
                         timerConfig: { enabled: hasTimer, duration: timerDuration },
-                        students: Array.from({ length: classSize }, (_, n) => ({ id: n + 1, needsCorrection: true, timerEnd: null }))
+                        students: Array.from({ length: classSize }, (_, n) => ({ id: n + 1, status: 'pending', needsCorrection: true, timerEnd: null }))
                     });
                 });
                 const ok = await updateDataInFirestore();
@@ -1600,68 +1732,51 @@ function listenToDataChanges() {
             presetManageList.addEventListener('change', handlePresetListChange);
             
             dashboardGrid.addEventListener('click', (e) => { const card = e.target.closest('.homework-card'); if (card) { currentHomeworkId = parseInt(card.dataset.id, 10); renderTrackingPage(); switchScreen('tracking'); } });
-            consolidatedListContainer.addEventListener('click', (e) => {
-                // 1. 檢查是否點擊了倒數計時觸發器 (Timer Trigger)
-                const timerTrigger = e.target.closest('.timer-trigger');
-                if (timerTrigger) {
-                    e.stopPropagation(); // 防止觸發外層的完成訂正
-                    const tag = timerTrigger.closest('.correction-tag');
-                    const studentId = parseInt(tag.dataset.studentId);
-                    const homeworkId = parseInt(tag.dataset.homeworkId);
-                    
-                    const homework = allHomeworks.find(hw => hw.id === homeworkId);
-                    const student = homework.students.find(s => s.id === studentId);
-                    
-                    if (homework && student && homework.timerConfig && homework.timerConfig.enabled) {
-                        // 設定結束時間 = 現在 + 設定秒數
-                        const duration = homework.timerConfig.duration || 300;
-                        student.timerEnd = Date.now() + (duration * 1000);
-                        updateDataInFirestore();
-                        renderConsolidatedPage(); // 重新渲染以更新狀態
-                    }
-                    return;
-                }
-
-                // 2. 檢查是否點擊了訂正標籤 (Mark as Done)
+consolidatedListContainer.addEventListener('click', (e) => {
                 const tag = e.target.closest('.correction-tag');
                 if (tag) {
-                    const studentId = parseInt(tag.dataset.studentId);
-                    const homeworkId = parseInt(tag.dataset.homeworkId);
-                    const homework = allHomeworks.find(hw => hw.id === homeworkId);
-                    
-                    // 檢查作業是否存在 (防止資料異常)
-                    if (!homework) return;
-
-                    const wasInProgress = homework.students.some(s => s.needsCorrection);
-                    const student = homework.students.find(s => s.id === studentId);
-                    
-                    if (student) {
-                        student.needsCorrection = false;
-                        student.timerEnd = null; // 清除倒數狀態
-                        if (wasInProgress && checkForCompletion(homework)) triggerRandomCelebration();
-                        updateDataInFirestore();
-                        tag.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
-                        tag.style.transform = 'scale(0)'; 
-                        tag.style.opacity = '0';
-                        setTimeout(() => { renderConsolidatedPage(); }, 300);
-                    } 
+                    const hw = findHomework(parseInt(tag.dataset.homeworkId, 10));
+                    const student = hw && (hw.students || []).find(s => s.id === parseInt(tag.dataset.studentId, 10));
+                    if (!hw || !student) return;
+                    if (e.target.closest('.undo-tag')) {
+                        changeStatuses([{ hw, student, status: 'pending' }], { undo: true, label: `已將 ${student.id} 號改回未訂正` });
+                        return;
+                    }
+                    if (e.target.closest('.timer-trigger')) { startStudentTimer(hw, student); return; }
+                    const st = getStatus(student);
+                    if (st === 'pending') changeStatuses([{ hw, student, status: 'corrected' }]);
+                    else if (st === 'corrected') completeWithFlash(hw, student);
+                    // 規則 A：總訂正名單上「已完成」點擊不動作，需按「↩」才能改回
                     return;
                 }
-                
-                // 3. 檢查是否點擊了標題 (進入追蹤頁面)
                 const title = e.target.closest('.correction-homework-title');
-                if (title) { 
-                    const homeworkId = parseInt(title.dataset.homeworkId, 10); 
-                    if (homeworkId) { 
-                        currentHomeworkId = homeworkId; 
-                        renderTrackingPage(); 
-                        switchScreen('tracking'); 
-                    } 
+                if (title) {
+                    currentHomeworkId = parseInt(title.dataset.homeworkId, 10);
+                    renderTrackingPage();
+                    switchScreen('tracking');
                 }
             });
-            studentChecklist.addEventListener('click', toggleStudentStatus);
+            toggleCompletedViewBtn.addEventListener('click', () => {
+                showCompletedInConsolidated = !showCompletedInConsolidated;
+                renderConsolidatedPage();
+            });
+            undoBtn.addEventListener('click', performUndo);
+            studentChecklist.addEventListener('click', (e) => {
+                const item = e.target.closest('.student-item');
+                if (!item) return;
+                const hw = getCurrentHomework();
+                const student = hw && (hw.students || []).find(s => s.id === parseInt(item.dataset.id, 10));
+                if (!hw || !student) return;
+                const st = getStatus(student);
+                // 追蹤頁：未訂正 → 已訂正 → 已完成；已完成再點一下直接改回未訂正（可復原）
+                if (st === 'pending') changeStatuses([{ hw, student, status: 'corrected' }]);
+                else if (st === 'corrected') changeStatuses([{ hw, student, status: 'completed' }]);
+                else changeStatuses([{ hw, student, status: 'pending' }], { undo: true, label: `已將 ${student.id} 號改回未訂正` });
+            });
+            batchCompletedBtn.addEventListener('click', () => batchSetStatus('completed', '已將全部標為已完成'));
+            batchCorrectedBtn.addEventListener('click', () => batchSetStatus('corrected', '已將全部標為已訂正'));
+            batchPendingBtn.addEventListener('click', () => batchSetStatus('pending', '已將全部改回未訂正'));
             deleteHomeworkBtn.addEventListener('click', deleteHomework);
-            selectAllBtn.addEventListener('click', toggleSelectAll);
             backToDashboardBtn.addEventListener('click', () => { currentHomeworkId = null; renderDashboard(); switchScreen('dashboard'); });
             backToDashboardFromConsolidatedBtn.addEventListener('click', () => { renderDashboard(); switchScreen('dashboard'); });
             doneTrackingBtn.addEventListener('click', () => { renderDashboard(); switchScreen('dashboard'); });
