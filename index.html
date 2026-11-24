@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>雲訂正V3.2.0</title>
+    <title>雲訂正V3.2.1</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
@@ -496,6 +496,10 @@
 
             let allHomeworks = [];
             let photoSettings = {};
+            // [V3.2.1] 只有雲端伺服器確認後才設為 true；未確認前禁止任何寫入
+            let dataReady = false;
+            // [V3.2.1] 最後一次雲端確認的資料，用於還原與防止清空
+            let lastServerState = null;
             let currentHomeworkId = null;
             let currentUser = null; 
             let firestoreUnsubscribe = null; 
@@ -504,32 +508,105 @@
             // DATA & STATE MANAGEMENT
             // ================================================================
 
-            const updateDataInFirestore = async () => {
-                if (!currentUser) return;
+const setSyncStatus = (text, level = 'ok') => {
+                firebaseStatus.textContent = text;
+                firebaseStatus.style.color = level === 'ok' ? 'var(--primary-color)' : (level === 'error' ? 'var(--delete-color)' : 'var(--warning-color)');
+            };
+
+            const cloneState = () => JSON.parse(JSON.stringify({ homeworks: allHomeworks, settings: photoSettings }));
+
+            const updateControlsEnabled = () => {
+                const ready = !!currentUser && dataReady;
+                showAddModalBtn.disabled = !ready;
+                showConsolidatedBtn.disabled = !ready;
+                photoSettingsBtn.disabled = !ready;
+            };
+
+            const restoreFromServerState = () => {
+                if (!lastServerState) return;
+                allHomeworks = JSON.parse(JSON.stringify(lastServerState.homeworks));
+                photoSettings = JSON.parse(JSON.stringify(lastServerState.settings));
+                fixedPhotoCelebrationToggle.checked = !!photoSettings.fixed;
+                renderActiveScreen();
+            };
+
+            const renderActiveScreen = () => {
+                if (screens.dashboard.classList.contains('active')) renderDashboard();
+                else if (screens.consolidated.classList.contains('active')) renderConsolidatedPage();
+                else if (screens.tracking.classList.contains('active')) renderTrackingPage();
+            };
+
+            // [V3.2.1 防護] 唯一的寫入入口：未確認、或作業清單將被清空時一律攔截
+            const updateDataInFirestore = async (options = {}) => {
+                if (!currentUser) return false;
+                if (!dataReady) {
+                    console.warn('[防護] 雲端資料尚未確認，已阻止寫入。');
+                    showToast('雲端資料尚未確認，已取消此次儲存，請稍候再試。', 'error');
+                    restoreFromServerState();
+                    return false;
+                }
+                const lastCount = lastServerState ? lastServerState.homeworks.length : 0;
+                if (allHomeworks.length === 0 && lastCount > 0 && !options.allowEmpty) {
+                    console.warn('[防護] 作業清單將被清空，已阻止寫入。');
+                    showToast('偵測到作業資料將被清空，已阻止儲存並還原為雲端最新資料。', 'error');
+                    restoreFromServerState();
+                    return false;
+                }
                 const dataToSave = { homeworks: allHomeworks, settings: photoSettings };
                 try {
                     await db.collection('users').doc(currentUser.uid).set(dataToSave, { merge: true });
+                    lastServerState = cloneState();
+                    return true;
                 } catch (error) {
                     console.error("Error saving data to Firestore: ", error);
                     showToast('資料儲存至雲端失敗！', 'error');
+                    return false;
                 }
+            };
+
+            // [V3.2.1] 補齊缺少的預設欄位，但絕不覆蓋使用者已有的項目與啟用狀態
+            const ensureDefaultSettings = () => {
+                let changed = false;
+                if (!Array.isArray(photoSettings.urls)) {
+                    photoSettings.urls = [{ url: DEFAULT_PHOTO_URL, enabled: true }];
+                    changed = true;
+                }
+                if (!Array.isArray(photoSettings.messages)) {
+                    photoSettings.messages = [{ text: DEFAULT_MESSAGE, enabled: true }];
+                    changed = true;
+                }
+                if (!Array.isArray(photoSettings.animations)) {
+                    photoSettings.animations = [];
+                    changed = true;
+                }
+                ANIMATION_PRESETS.forEach(preset => {
+                    if (!photoSettings.animations.some(a => a.id === preset.id)) {
+                        photoSettings.animations.push({ ...preset });
+                        changed = true;
+                    }
+                });
+                if (typeof photoSettings.fixed !== 'boolean') {
+                    photoSettings.fixed = false;
+                    changed = true;
+                }
+                return changed;
+            };
+
+            const loadDocIntoState = (data) => {
+                allHomeworks = Array.isArray(data.homeworks) ? data.homeworks : [];
+                photoSettings = (data.settings && typeof data.settings === 'object') ? data.settings : {};
+                const changed = ensureDefaultSettings();
+                fixedPhotoCelebrationToggle.checked = !!photoSettings.fixed;
+                return changed;
             };
 
             const loadDefaultSettings = () => {
-                photoSettings = { urls: [], messages: [], animations: [], fixed: false };
-                if (!photoSettings.urls.some(p => p.url === DEFAULT_PHOTO_URL)) {
-                    photoSettings.urls.unshift({ url: DEFAULT_PHOTO_URL, enabled: true });
-                }
-                if (!photoSettings.messages.some(m => m.text === DEFAULT_MESSAGE)) {
-                    photoSettings.messages.unshift({ text: DEFAULT_MESSAGE, enabled: true });
-                }
-                if (!photoSettings.animations || photoSettings.animations.length !== ANIMATION_PRESETS.length) {
-                    photoSettings.animations = JSON.parse(JSON.stringify(ANIMATION_PRESETS));
-                }
-                fixedPhotoCelebrationToggle.checked = photoSettings.fixed;
+                photoSettings = {};
+                ensureDefaultSettings();
+                fixedPhotoCelebrationToggle.checked = !!photoSettings.fixed;
             };
 
-            const switchScreen = (screenName) => {
+                        const switchScreen = (screenName) => {
                 Object.values(screens).forEach(s => s.classList.remove('active'));
                 screens[screenName].classList.add('active');
             };
@@ -546,6 +623,10 @@
             const renderDashboard = () => {
                 if (!currentUser) {
                     dashboardGrid.innerHTML = `<p style="color: var(--text-color-secondary); grid-column: 1 / -1; text-align: center; font-size: 1.2em;">請點擊右上角「☁️ 雲端服務與備份」登入以載入資料。</p>`;
+                    return;
+                }
+                if (!dataReady) {
+                    dashboardGrid.innerHTML = `<p style="color: var(--text-color-secondary); grid-column: 1 / -1; text-align: center; font-size: 1.2em;">雲端資料載入中，請稍候…（確認完成前暫停新增與修改，以保護資料）</p>`;
                     return;
                 }
                 dashboardGrid.innerHTML = '';
@@ -673,7 +754,7 @@
             const deleteHomework = () => {
                  if (confirm('確定要永久刪除此項作業嗎？此操作無法復原。')) {
                     allHomeworks = allHomeworks.filter(hw => hw.id !== currentHomeworkId);
-                    updateDataInFirestore();
+                    updateDataInFirestore({ allowEmpty: true });
                     switchScreen('dashboard');
                 }
             };
@@ -859,9 +940,8 @@
                 googleUserInfo.textContent = `已登入為：${user.displayName || user.email}`;
                 firebaseStatus.textContent = '即時同步：連線中...';
                 
-                photoSettingsBtn.disabled = false;
-                showConsolidatedBtn.disabled = false;
-                showAddModalBtn.disabled = false;
+                dataReady = false;
+                updateControlsEnabled();
 
                 // ==============================[BUG FIX START]==============================
                 // [修正] 當使用者登入時，無論如何都應該啟用Google Drive按鈕。
@@ -889,6 +969,8 @@
                 
                 allHomeworks = [];
                 photoSettings = {};
+                dataReady = false;
+                lastServerState = null;
                 if (firestoreUnsubscribe) {
                     firestoreUnsubscribe();
                     firestoreUnsubscribe = null;
@@ -896,49 +978,62 @@
                 renderDashboard(); 
             }
 
-            function listenToDataChanges() {
+function listenToDataChanges() {
                 if (!currentUser) return;
                 if (firestoreUnsubscribe) firestoreUnsubscribe();
 
+                // [V3.2.1] 重新連線時先視為「未確認」，雲端回應前禁止任何寫入
+                dataReady = false;
+                updateControlsEnabled();
+                setSyncStatus('即時同步：等待雲端確認資料中…（暫停編輯）', 'warn');
+
                 const docRef = db.collection('users').doc(currentUser.uid);
-                
-                firestoreUnsubscribe = docRef.onSnapshot(doc => {
+
+                firestoreUnsubscribe = docRef.onSnapshot({ includeMetadataChanges: true }, doc => {
+                    // [防護 A] 本機快取不可作為「沒有資料」的依據（離線或剛開啟瀏覽器時常見），只顯示狀態，不寫入
+                    if (doc.metadata.fromCache) {
+                        if (!dataReady) setSyncStatus('即時同步：尚未連上雲端，暫停編輯以保護資料', 'warn');
+                        return;
+                    }
+
+                    // [防護 B] 以下皆為「伺服器確認」的結果，可信
                     if (doc.exists) {
-                        const data = doc.data();
-                        allHomeworks = data.homeworks || [];
-                        photoSettings = data.settings || {};
-                        
-                        if (!photoSettings.urls || !photoSettings.animations || !Array.isArray(photoSettings.animations) || photoSettings.animations.length === 0) {
-                             loadDefaultSettings();
-                             updateDataInFirestore(); 
-                        }
-                        fixedPhotoCelebrationToggle.checked = photoSettings.fixed;
-                        firebaseStatus.textContent = '即時同步：已連線';
+                        const needsWriteBack = loadDocIntoState(doc.data());
+                        dataReady = true;
+                        lastServerState = cloneState();
+                        setSyncStatus('即時同步：已連線（資料已確認）', 'ok');
+                        updateControlsEnabled();
+                        renderActiveScreen();
+                        // 只有缺少預設欄位時才補寫（非破壞性）
+                        if (needsWriteBack) updateDataInFirestore();
                     } else {
-                        console.log("No data found for new user, initializing...");
-                        firebaseStatus.textContent = '即時同步：建立新資料...';
+                        // [防護 C] 伺服器確認「文件不存在」才是新使用者；不在此寫入，等使用者第一次操作才建立
                         allHomeworks = [];
                         loadDefaultSettings();
-                        updateDataInFirestore();
-                    }
-                    if (screens.dashboard.classList.contains('active')) {
-                        renderDashboard();
-                    } else if (screens.consolidated.classList.contains('active')) {
-                        // [修正] 當在總訂正名單頁面時，也即時更新
-                        renderConsolidatedPage();
-                    } else if (screens.tracking.classList.contains('active')) {
-                        // [修正] 當在個別作業追蹤頁面時，也即時更新
-                        renderTrackingPage();
+                        dataReady = true;
+                        lastServerState = cloneState();
+                        setSyncStatus('即時同步：已連線（雲端尚無資料，新增第一筆後才會建立）', 'ok');
+                        updateControlsEnabled();
+                        renderActiveScreen();
                     }
                 }, error => {
                     console.error("Error listening to data:", error);
-                    firebaseStatus.textContent = '即時同步：連線錯誤';
+                    dataReady = false;
+                    updateControlsEnabled();
+                    setSyncStatus('即時同步：連線錯誤（已暫停編輯）', 'error');
                     showToast('從雲端同步資料失敗！', 'error');
                 });
             }
 
-            // --- Google Drive Functions (No changes needed) ---
+                        // --- Google Drive Functions (No changes needed) ---
             async function backupToGoogleDrive() {
+                if (!dataReady) {
+                    showToast('雲端資料尚未確認，已取消備份，以免用空資料覆蓋雲端備份。', 'error');
+                    return;
+                }
+                if (allHomeworks.length === 0 && !confirm('目前沒有任何作業資料，確定要把「空資料」備份到 Google Drive 覆蓋舊備份嗎？')) {
+                    return;
+                }
                 if (!gapi.client.getToken()) {
                     showToast('權杖已過期或無效，請重新點擊登入按鈕以進行授權。', 'error');
                     handleGoogleLogin();
@@ -987,6 +1082,10 @@
             }
 
             async function restoreFromGoogleDrive() {
+                if (!dataReady) {
+                    showToast('雲端資料尚未確認，請稍候再還原。', 'error');
+                    return;
+                }
                 if (!gapi.client.getToken()) {
                      showToast('權杖已過期或無效，請重新點擊登入按鈕以進行授權。', 'error');
                     handleGoogleLogin();
@@ -1018,7 +1117,7 @@
                     if (importedData && (importedData.version === '3.0' || importedData.version === '2.0') && importedData.homeworks && importedData.settings) {
                        allHomeworks = importedData.homeworks;
                        photoSettings = importedData.settings;
-                       await updateDataInFirestore(); 
+                       await updateDataInFirestore({ allowEmpty: true }); 
                        showToast('資料從 Google Drive 還原並同步成功！');
                        closeModal(cloudSyncModal);
                     } else {
@@ -1036,6 +1135,7 @@
             // --- Local File Import/Export ---
             const exportData = () => {
                 if (!currentUser) { showToast('請先登入！', 'error'); return; }
+                if (!dataReady) { showToast('雲端資料尚未確認，請稍候再匯出。', 'error'); return; }
                 const fullData = { version: '3.0', homeworks: allHomeworks, settings: photoSettings };
                 const dataStr = JSON.stringify(fullData, null, 2);
                 const dataBlob = new Blob([dataStr], {type: 'application/json'});
@@ -1049,6 +1149,11 @@
             const importData = (event) => {
                 const file = event.target.files[0];
                 if (!file || !currentUser) return;
+                if (!dataReady) {
+                    showToast('雲端資料尚未確認，請稍候再匯入。', 'error');
+                    importFileInput.value = '';
+                    return;
+                }
                 if(!confirm('匯入檔案將會「完全覆蓋」目前的所有即時同步資料，確定要繼續嗎？')) {
                     importFileInput.value = ''; return;
                 }
@@ -1059,7 +1164,7 @@
                         if ((importedData.version === '3.0' || importedData.version === '2.0') && importedData.homeworks && importedData.settings) {
                            allHomeworks = importedData.homeworks;
                            photoSettings = importedData.settings;
-                           updateDataInFirestore();
+                           updateDataInFirestore({ allowEmpty: true });
                            showToast('檔案匯入並同步成功！');
                         } else {
                            showToast('檔案格式錯誤，無法匯入。', 'error');
